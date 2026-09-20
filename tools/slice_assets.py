@@ -1,12 +1,11 @@
-"""Split transparent sprite sheets into individual, lossless PNG files.
+"""Cut the supplied transparent sprite sheets into lossless, padded PNG files.
 
-Run from the project root with: python tools/slice_assets.py
-Requires Pillow and NumPy. Backgrounds are copied without cropping.
+Run from the project root: python tools/slice_assets.py
+Requires Pillow and NumPy. Room backgrounds and the finale are copied unchanged.
 """
 
 from __future__ import annotations
 
-import argparse
 from dataclasses import dataclass
 from pathlib import Path
 from shutil import copyfile
@@ -14,18 +13,8 @@ from shutil import copyfile
 import numpy as np
 from PIL import Image
 
-
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ROOT / "public" / "assets"
-SHEETS = {
-    "Базовые коты.png": "cats/basic",
-    "Редкие коты.png": "cats/rare",
-    "Особые коты.png": "cats/special",
-    "Базовые улучшения.png": "upgrades/basic",
-    "Продвинутые улучшения.png": "upgrades/advanced",
-    "Интерфейсные игровые значки.png": "ui",
-    "Ресурсы и награды.png": "resources",
-}
 
 
 @dataclass
@@ -45,7 +34,7 @@ class Component:
 
 
 def connected_components(mask: np.ndarray) -> tuple[list[tuple[int, Component]], np.ndarray]:
-    """Label 8-connected foreground runs, avoiding a Python loop per pixel."""
+    """Label 8-connected alpha runs without looping through every pixel in Python."""
     parent: list[int] = []
     bounds: list[Component] = []
     previous: list[tuple[int, int, int]] = []
@@ -89,89 +78,164 @@ def connected_components(mask: np.ndarray) -> tuple[list[tuple[int, Component]],
     return [(i + 1, bounds[i]) for i in range(len(parent)) if find(i) == i], labels
 
 
-def sort_in_rows(components: list[Component]) -> list[Component]:
-    if not components:
-        return []
-    median_height = float(np.median([c.y1 - c.y0 for c in components]))
-    row_tolerance = median_height * 0.4
-    rows: list[list[Component]] = []
-    for component in sorted(components, key=lambda c: (c.y0, c.x0)):
-        center = (component.y0 + component.y1) / 2
-        for row in rows:
-            row_center = sum((item.y0 + item.y1) / 2 for item in row) / len(row)
-            if abs(center - row_center) <= row_tolerance:
-                row.append(component)
-                break
-        else:
-            rows.append([component])
-    return [component for row in rows for component in sorted(row, key=lambda c: c.x0)]
+# Row shapes describe visual placement in each supplied sheet. Disconnected
+# sparkles, holograms and wisps are joined to the nearest main illustration.
+SHEETS: list[tuple[str, str, tuple[int, ...]]] = [
+    ("Базовые коты.png", "cats/basic", (3, 2)),
+    ("Базовые коты спят.png", "cats/basic/sleep", (3, 2)),
+    ("Редкие коты.png", "cats/rare", (3, 2)),
+    ("Редкие коты спят.png", "cats/rare/sleep", (3, 2)),
+    ("Особые коты.png", "cats/special", (3, 2)),
+    ("Особые коты спят.png", "cats/special/sleep", (3, 2)),
+    ("Супер коты спят.png", "cats/superhero/sleep", (3, 2)),
+    ("ИИ коты.png", "cats/ai", (3, 2)),
+    ("ИИ коты спят.png", "cats/ai/sleep", (3, 2)),
+    ("Корм.png", "food", (2, 2)),
+    ("Ресурсы и награды.png", "resources", (3, 2)),
+    ("Интерфейсные игровые значки.png", "ui", (3, 2)),
+    ("Дверь.png", "ui/door", (1,)),
+]
+
+UPGRADE_ROWS = [
+    ((3, 2), (3, 2)),
+    ((2, 3), (2, 2, 1)),
+    ((2, 3), (2, 3)),
+    ((3, 2), (2, 3)),
+    ((3, 2), (2, 3)),
+]
+for room_number, (basic_rows, advanced_rows) in enumerate(UPGRADE_ROWS, 1):
+    SHEETS.extend([
+        (f"Базовые улучшения {room_number}.png", f"upgrades/room-{room_number}/basic", basic_rows),
+        (f"Продвинутые улучшения {room_number}.png", f"upgrades/room-{room_number}/advanced", advanced_rows),
+    ])
 
 
-def slice_sheet(source: Path, target: Path, alpha_threshold: int, min_pixels: int, padding: int) -> None:
-    image = Image.open(source).convert("RGBA")
-    alpha = np.asarray(image.getchannel("A"))
-    found, labels = connected_components(alpha >= alpha_threshold)
-    major = [(label, component) for label, component in found if component.pixels >= min_pixels]
-    # Tiny decorative pieces can be disconnected from the main illustration.
-    # Attach those enclosed by a larger object's box; keep their real alpha.
-    for small_label, small in list(major):
-        containing = [
-            (label, large) for label, large in major
-            if label != small_label and large.pixels > small.pixels * 5
-            and large.x0 <= small.x0 and large.y0 <= small.y0
-            and large.x1 >= small.x1 and large.y1 >= small.y1
-        ]
-        if containing:
-            owner_label, owner = min(containing, key=lambda item: item[1].pixels)
-            labels[labels == small_label] = owner_label
-            owner.pixels += small.pixels
-            major.remove((small_label, small))
-    ordered = sort_in_rows([component for _, component in major])
-    components = [(next(label for label, item in major if item is component), component) for component in ordered]
+def ordered_main(found: list[tuple[int, Component]], rows: tuple[int, ...]) -> list[tuple[int, Component]]:
+    expected = sum(rows)
+    main = sorted(found, key=lambda item: item[1].pixels, reverse=True)[:expected]
+    if len(main) != expected or main[-1][1].pixels < 5000:
+        raise ValueError(f"Expected {expected} sizeable objects, found {len(main)}")
+    main.sort(key=lambda item: (item[1].y0 + item[1].y1) / 2)
+    ordered: list[tuple[int, Component]] = []
+    cursor = 0
+    for count in rows:
+        ordered.extend(sorted(main[cursor:cursor + count], key=lambda item: item[1].x0))
+        cursor += count
+    return ordered
+
+
+def distance_to_box(piece: Component, box: Component) -> int:
+    dx = max(box.x0 - piece.x1, piece.x0 - box.x1, 0)
+    dy = max(box.y0 - piece.y1, piece.y0 - box.y1, 0)
+    return dx * dx + dy * dy
+
+
+def save_object(image: Image.Image, labels: np.ndarray, ids: list[int], box: Component, target: Path, number: int, padding: int) -> None:
+    left = max(0, box.x0 - padding)
+    top = max(0, box.y0 - padding)
+    right = min(image.width, box.x1 + padding)
+    bottom = min(image.height, box.y1 + padding)
+    pixels = np.array(image.crop((left, top, right, bottom)))
+    object_mask = np.isin(labels[top:bottom, left:right], ids)
+    # Retain source antialiasing just outside the alpha threshold.
+    for _ in range(8):
+        grown = object_mask.copy()
+        grown[1:] |= object_mask[:-1]
+        grown[:-1] |= object_mask[1:]
+        grown[:, 1:] |= object_mask[:, :-1]
+        grown[:, :-1] |= object_mask[:, 1:]
+        object_mask = grown
+    pixels[~object_mask] = 0
+    result = Image.new("RGBA", (right - left + padding * 2, bottom - top + padding * 2))
+    result.paste(Image.fromarray(pixels, "RGBA"), (padding, padding))
+    result.save(target / f"{number:02d}.png", optimize=True)
+
+
+def clear_numbered(target: Path) -> None:
     target.mkdir(parents=True, exist_ok=True)
-    for existing in target.glob("*.png"):
-        if existing.stem.isdecimal():
-            existing.unlink()
-    print(f"{source.name}: {len(components)} objects")
-    for number, (label, component) in enumerate(components, 1):
-        box = (
-            max(0, component.x0 - padding),
-            max(0, component.y0 - padding),
-            min(image.width, component.x1 + padding),
-            min(image.height, component.y1 + padding),
-        )
-        pixels = np.array(image.crop(box))
-        mask_for_object = labels[box[1]:box[3], box[0]:box[2]] == label
-        # Keep all original edge alpha around the detected foreground.
-        # An 8 px dilation admits antialiasing but excludes neighboring sprites.
+    for old in target.glob("*.png"):
+        if old.stem.isdecimal():
+            old.unlink()
+
+
+def slice_sheet(source: Path, target: Path, rows: tuple[int, ...], padding: int = 12) -> None:
+    image = Image.open(source).convert("RGBA")
+    found, labels = connected_components(np.asarray(image.getchannel("A")) >= 8)
+    ordered = ordered_main(found, rows)
+    owners = {label: [label] for label, _ in ordered}
+    boxes = {label: Component(c.x0, c.y0, c.x1, c.y1, c.pixels) for label, c in ordered}
+    selected = set(owners)
+    for label, piece in found:
+        if label in selected or piece.pixels < 100:
+            continue
+        owner = min(ordered, key=lambda item: (distance_to_box(piece, item[1]), -item[1].pixels))[0]
+        owners[owner].append(label)
+        boxes[owner].absorb(piece)
+    clear_numbered(target)
+    for number, (label, _) in enumerate(ordered, 1):
+        save_object(image, labels, owners[label], boxes[label], target, number, padding)
+    print(f"{source.name}: {len(ordered)} objects -> {target.relative_to(ASSETS)}")
+
+
+def slice_super_cats(source: Path, target: Path, padding: int = 12) -> None:
+    """The first three hero cats touch; split their known sheet cells."""
+    image = Image.open(source).convert("RGBA")
+    found, labels = connected_components(np.asarray(image.getchannel("A")) >= 8)
+    major = sorted((item for item in found if item[1].pixels > 5000), key=lambda item: item[1].y0)
+    top = sorted((item for item in major if item[1].y0 < 100), key=lambda item: item[1].x0)
+    bottom = sorted((item for item in major if item[1].y0 >= 100), key=lambda item: item[1].x0)
+    if len(top) != 2 or len(bottom) != 2:
+        raise ValueError("Unexpected superhero sheet layout")
+    x = np.arange(image.width)[None, :]
+    masks = [
+        labels == top[0][0],
+        (labels == top[1][0]) & (x < 975),
+        (labels == top[1][0]) & (x >= 990),
+        labels == bottom[0][0],
+        labels == bottom[1][0],
+    ]
+    clear_numbered(target)
+    for number, raw_mask in enumerate(masks, 1):
+        mask = raw_mask.copy()
         for _ in range(8):
-            grown = mask_for_object.copy()
-            grown[1:] |= mask_for_object[:-1]
-            grown[:-1] |= mask_for_object[1:]
-            grown[:, 1:] |= mask_for_object[:, :-1]
-            grown[:, :-1] |= mask_for_object[:, 1:]
-            mask_for_object = grown
-        pixels[~mask_for_object] = 0
-        result = Image.new("RGBA", (box[2] - box[0] + 2 * padding, box[3] - box[1] + 2 * padding))
-        result.paste(Image.fromarray(pixels, "RGBA"), (padding, padding))
-        name = f"{number:02d}.png"
-        result.save(target / name, optimize=True)
-        print(f"  {name}: {box}, {component.pixels} foreground pixels")
+            grown = mask.copy()
+            grown[1:] |= mask[:-1]
+            grown[:-1] |= mask[1:]
+            grown[:, 1:] |= mask[:, :-1]
+            grown[:, :-1] |= mask[:, 1:]
+            mask = grown
+        pixels = np.array(image)
+        pixels[~mask] = 0
+        cropped = Image.fromarray(pixels, "RGBA")
+        bbox = cropped.getchannel("A").getbbox()
+        if bbox is None:
+            raise ValueError(f"Empty superhero cell {number}")
+        result = Image.new("RGBA", (bbox[2] - bbox[0] + padding * 2, bbox[3] - bbox[1] + padding * 2))
+        result.paste(cropped.crop(bbox), (padding, padding))
+        result.save(target / f"{number:02d}.png", optimize=True)
+    print(f"{source.name}: 5 objects -> {target.relative_to(ASSETS)}")
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--alpha-threshold", type=int, default=8)
-    parser.add_argument("--min-pixels", type=int, default=250)
-    parser.add_argument("--padding", type=int, default=12)
-    args = parser.parse_args()
-    for filename, folder in SHEETS.items():
-        slice_sheet(ROOT / filename, ASSETS / folder, args.alpha_threshold, args.min_pixels, args.padding)
+    for filename, folder, rows in SHEETS:
+        slice_sheet(ROOT / filename, ASSETS / folder, rows)
+    slice_super_cats(ROOT / "Супер коты.png", ASSETS / "cats/superhero")
     backgrounds = ASSETS / "backgrounds"
     backgrounds.mkdir(parents=True, exist_ok=True)
+    for number in range(1, 6):
+        copyfile(ROOT / f"Фон {number}.png", backgrounds / f"room-{number}-day.png")
+        copyfile(ROOT / f"Фон {number} ночь.png", backgrounds / f"room-{number}-night.png")
+    copyfile(ROOT / "Финал.png", ASSETS / "ui/final.png")
+    # Remove only obsolete outputs from the first version of the slicer.
+    for folder_name in ("upgrades/basic", "upgrades/advanced"):
+        folder = ASSETS / folder_name
+        for old in folder.glob("[0-9][0-9].png"):
+            old.unlink()
+        if folder.exists() and not any(folder.iterdir()):
+            folder.rmdir()
     for number in range(1, 4):
-        copyfile(ROOT / f"Фон {number}.png", backgrounds / f"room-{number}.png")
-    print("Backgrounds copied unchanged.")
+        (backgrounds / f"room-{number}.png").unlink(missing_ok=True)
+    print("Ten backgrounds and finale copied unchanged.")
 
 
 if __name__ == "__main__":

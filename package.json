@@ -1,12 +1,13 @@
 {
   "name": "cat-clicker",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "scripts": {
     "dev": "vite --configLoader runner",
     "build": "tsc -b && vite build --configLoader runner",
-    "preview": "vite preview --configLoader runner"
+    "preview": "vite preview --configLoader runner",
+    "check:game": "node tools/check_game.mjs"
   },
   "dependencies": {
     "react": "^19.1.1",
