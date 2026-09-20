@@ -144,6 +144,29 @@ footer { padding: 16px 0 4px; color: #ad9381; font-size: 11px; text-align: cente
 .room-tab:disabled { opacity: .48; cursor: not-allowed; }
 .scene { height: min(56vw, 665px); min-height: 430px; background-position: center center; }
 .scene-furniture { position: absolute; z-index: 1; left: var(--furniture-x); top: var(--furniture-y); width: var(--furniture-width); height: var(--furniture-height); transform: translate(-50%, -50%); object-fit: contain; pointer-events: none; filter: drop-shadow(0 8px 6px #2b170b4a); }
+.scene-furniture { display: block; padding: 0; border: 0; background: transparent; }
+.scene-furniture img { display: block; width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
+.scene.editing { touch-action: none; cursor: crosshair; }
+.scene.editing .scene-furniture { z-index: 4; pointer-events: auto; cursor: grab; touch-action: none; }
+.scene.editing .scene-furniture.selected { filter: drop-shadow(0 0 9px #ffe082) drop-shadow(0 7px 5px #2b170b4a); }
+.scene.editing .cat-button, .scene.editing .door-button, .scene.editing .scene-caption, .scene.editing .scene-hint { pointer-events: none; }
+.placement-guide { position: absolute; z-index: 2; left: 2%; right: 2%; border: 2px dashed #fff2afaa; border-radius: 16px; background: #ffefad19; pointer-events: none; }
+.placement-guide.wall { top: 15%; height: 40%; }
+.placement-guide.floor { top: 55%; bottom: 2%; }
+.furniture-panel { padding: 12px 16px 14px; background: #fffaf2; border-top: 1px solid #eadbca; }
+.furniture-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+.furniture-heading > div { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px 12px; }
+.furniture-heading strong { color: #69412e; font-size: 14px; }
+.furniture-heading span { color: #9a7764; font-size: 12px; }
+.furniture-mode { flex: 0 0 auto; padding: 7px 13px; border: 1px solid #b8734e; border-radius: 9px; background: #bd7149; color: #fffaf2; font-size: 12px; font-weight: 800; cursor: pointer; }
+.furniture-mode:hover { background: #a85f3d; }
+.furniture-tray { display: flex; gap: 8px; overflow-x: auto; padding: 2px 1px 5px; scrollbar-width: thin; }
+.furniture-chip { display: flex; align-items: center; flex: 1 0 172px; min-width: 0; min-height: 68px; gap: 8px; padding: 6px 9px; border: 1px solid #e8d6c0; border-radius: 11px; background: #fffdf9; color: #654632; text-align: left; cursor: grab; touch-action: pan-x; user-select: none; }
+.furniture-chip.selected { border-color: #bc7049; background: #fff0db; box-shadow: 0 0 0 2px #efc49b66; }
+.furniture-chip img { width: 52px; height: 52px; flex: 0 0 auto; object-fit: contain; pointer-events: none; }
+.furniture-chip span { min-width: 0; font-size: 11px; font-weight: 800; line-height: 1.2; }
+.furniture-chip small { display: block; margin-top: 4px; color: #a17a61; font-size: 10px; font-weight: 600; }
+.furniture-help { margin: 8px 1px 0; color: #8d654d; font-size: 11px; line-height: 1.4; }
 .cat-button { z-index: 3; left: 50%; bottom: 2%; width: min(30vw, 380px); height: min(36vw, 450px); transform: translateX(-50%); }
 .cat-button:disabled { cursor: default; }
 .scene.asleep .cat-button { width: min(40vw, 500px); height: min(28vw, 320px); bottom: 3%; }
@@ -184,6 +207,11 @@ footer { padding: 16px 0 4px; color: #ad9381; font-size: 11px; text-align: cente
   .boost-label { font-size: 9px; }
   .scene { height: 430px; min-height: 0; background-position: center; }
   .scene-furniture { left: var(--furniture-mobile-x); top: var(--furniture-mobile-y); width: var(--furniture-mobile-width); height: var(--furniture-mobile-height); }
+  .furniture-panel { padding: 10px 9px 12px; }
+  .furniture-heading strong { font-size: 12px; }
+  .furniture-heading span { font-size: 10px; }
+  .furniture-chip { flex-basis: 148px; min-height: 62px; }
+  .furniture-chip img { width: 46px; height: 46px; }
   .cat-button { bottom: 8%; width: clamp(185px, 54vw, 240px); height: 255px; }
   .scene.asleep .cat-button { width: min(88vw, 370px); height: 210px; bottom: 8%; }
   .door-button { right: 2%; top: 2%; width: 75px; font-size: 8px; }

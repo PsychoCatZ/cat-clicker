@@ -5,7 +5,7 @@ import { build } from 'esbuild'
 
 const bundled = await build({
   stdin: {
-    contents: "export * from './src/game/economy.ts'; export * from './src/game/cats.ts'; export * from './src/game/upgrades.ts'; export * from './src/game/items.ts'; export * from './src/game/rooms.ts'; export * from './src/game/save.ts';",
+    contents: "export * from './src/game/economy.ts'; export * from './src/game/cats.ts'; export * from './src/game/upgrades.ts'; export * from './src/game/items.ts'; export * from './src/game/rooms.ts'; export * from './src/game/save.ts'; export * from './src/game/furniture.ts';",
     resolveDir: process.cwd(),
     sourcefile: 'verification.ts',
   },
@@ -47,6 +47,29 @@ state = reduce(state, { type: 'buyResource', id: 'fish' })
 assert.equal(game.clickPower(state), 3, 'each resource level adds a fixed bonus')
 state = reduce(state, { type: 'buyUpgrade', id: 'room-1-advanced-1' })
 assert.equal(game.activeProgress(state).boughtUpgrades.length, 0)
+
+let decorating = fund(game.initialState())
+decorating = reduce(decorating, { type: 'buyUpgrade', id: 'room-1-basic-1' })
+assert.equal(game.fishPerSecond(decorating), 1, 'income starts before placing the item')
+assert.equal(game.visibleFurniture(1, game.activeProgress(decorating).boughtUpgrades).length, 1)
+assert.deepEqual(game.activeProgress(decorating).furniturePositions, {}, 'new purchases wait in the tray')
+decorating = reduce(decorating, { type: 'placeFurniture', id: 'room-1-basic-1', layout: 'desktop', x: 50, y: 10 })
+assert.ok(game.activeProgress(decorating).furniturePositions['room-1-basic-1'].desktop.y >= 57, 'floor item stays on the floor')
+decorating = reduce(decorating, { type: 'placeFurniture', id: 'room-1-basic-1', layout: 'mobile', x: 90, y: 90 })
+assert.ok(game.activeProgress(decorating).furniturePositions['room-1-basic-1'].mobile.x < 90, 'mobile item stays within the scene')
+assert.equal(game.fishPerSecond(decorating), 1, 'placing does not change income')
+const beforeInvalidPlacement = decorating
+decorating = reduce(decorating, { type: 'placeFurniture', id: 'room-1-advanced-2', layout: 'desktop', x: 30, y: 30 })
+assert.equal(decorating, beforeInvalidPlacement, 'unowned items cannot be placed')
+for (const upgrade of game.upgradesForRoom(1).filter((item) => item.tier === 'basic' && item.slot > 0)) {
+  decorating = fund(decorating)
+  decorating = reduce(decorating, { type: 'buyUpgrade', id: upgrade.id })
+}
+decorating = fund(decorating)
+decorating = reduce(decorating, { type: 'buyUpgrade', id: 'room-1-advanced-2' })
+assert.equal(game.visibleFurniture(1, game.activeProgress(decorating).boughtUpgrades)[1].id, 'room-1-advanced-2', 'advanced item replaces the basic image')
+decorating = reduce(decorating, { type: 'placeFurniture', id: 'room-1-advanced-2', layout: 'desktop', x: 30, y: 95 })
+assert.ok(game.activeProgress(decorating).furniturePositions['room-1-advanced-2'].desktop.y < 55, 'wall item stays on the wall')
 
 let sleeping = game.initialState()
 sleeping.rooms[0].hunger = 0
@@ -92,6 +115,13 @@ globalThis.localStorage = {
 }
 game.saveGame(state)
 assert.deepEqual(game.loadGame(), state)
+game.saveGame(decorating)
+assert.deepEqual(game.loadGame().rooms[0].furniturePositions, decorating.rooms[0].furniturePositions, 'furniture positions survive reload')
+const legacyV2 = game.initialState()
+legacyV2.rooms[0].boughtUpgrades = ['room-1-basic-1']
+delete legacyV2.rooms[0].furniturePositions
+saved.set('cat-clicker-save-v2', JSON.stringify(legacyV2))
+assert.ok(game.loadGame().rooms[0].furniturePositions['room-1-basic-1'].desktop, 'older saves keep their room layout')
 const staleBoost = game.initialState()
 staleBoost.rooms[0].caviarSeconds = 60
 saved.set('cat-clicker-save-v2', JSON.stringify({ ...staleBoost, savedAt: Date.now() - 61000 }))
@@ -114,4 +144,5 @@ assert.equal(game.activeProgress(state).unlockedCats.length, 1)
 state = reduce(state, { type: 'reset' })
 assert.equal(state.mode, 'normal')
 assert.equal(state.currentRoom, 1)
-console.log('Game checks passed: purchases, hunger, fallback, five rooms, save, Expert and reset.')
+assert.deepEqual(game.activeProgress(state).furniturePositions, {}, 'reset clears room decoration')
+console.log('Game checks passed: purchases, furniture placement, hunger, fallback, five rooms, save, Expert and reset.')

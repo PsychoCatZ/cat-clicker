@@ -1,4 +1,5 @@
 import { catsForRoom, firstCatForRoom } from './cats'
+import { constrainFurniturePoint, visibleFurniture, type FurniturePosition, type SceneLayout } from './furniture'
 import { foods, resources } from './items'
 import { rooms } from './rooms'
 import { upgradesForRoom, type Upgrade } from './upgrades'
@@ -10,6 +11,7 @@ export interface RoomProgress {
   hunger: number
   resourceLevels: Record<string, number>
   boughtUpgrades: string[]
+  furniturePositions: Record<string, FurniturePosition>
   unlockedCats: string[]
   selectedCat: string
   caviarSeconds: number
@@ -28,6 +30,7 @@ export type GameAction =
   | { type: 'tick'; seconds: number }
   | { type: 'buyResource'; id: string }
   | { type: 'buyUpgrade'; id: string }
+  | { type: 'placeFurniture'; id: string; layout: SceneLayout; x: number; y: number }
   | { type: 'buyFood'; id: string }
   | { type: 'buyCat'; id: string }
   | { type: 'selectCat'; id: string }
@@ -43,6 +46,7 @@ export const newRoomProgress = (roomId: number): RoomProgress => ({
   hunger: 100,
   resourceLevels: Object.fromEntries(resources.map((item) => [item.id, 0])),
   boughtUpgrades: [],
+  furniturePositions: {},
   unlockedCats: [firstCatForRoom(roomId).id],
   selectedCat: firstCatForRoom(roomId).id,
   caviarSeconds: 0,
@@ -159,6 +163,19 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         fish: progress.fish - cost,
         boughtUpgrades: [...progress.boughtUpgrades, upgrade.id],
       }))
+    }
+    case 'placeFurniture': {
+      const upgrade = visibleFurniture(state.currentRoom, progress.boughtUpgrades).find((item) => item.id === action.id)
+      if (!upgrade || (action.layout !== 'desktop' && action.layout !== 'mobile')) return state
+      const point = constrainFurniturePoint(upgrade, action.layout, { x: action.x, y: action.y })
+      if (!point) return state
+      return updateProgress(state, {
+        ...progress,
+        furniturePositions: {
+          ...progress.furniturePositions,
+          [upgrade.id]: { ...progress.furniturePositions[upgrade.id], [action.layout]: point },
+        },
+      })
     }
     case 'buyFood': {
       const food = foods.find((item) => item.id === action.id)

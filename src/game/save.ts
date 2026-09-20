@@ -1,5 +1,6 @@
 import { catsForRoom, firstCatForRoom } from './cats'
 import { initialState, newRoomProgress, type GameMode, type GameState, type RoomProgress } from './economy'
+import { defaultFurniturePosition, type FurniturePoint, type FurniturePosition } from './furniture'
 import { resources } from './items'
 import { rooms } from './rooms'
 import { upgradesForRoom } from './upgrades'
@@ -10,12 +11,34 @@ const OLD_SAVE_KEY = 'cat-clicker-save-v1'
 const safeNumber = (value: unknown, fallback = 0): number =>
   typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : fallback
 
+function readPoint(value: unknown): FurniturePoint | null {
+  if (!value || typeof value !== 'object') return null
+  const point = value as Partial<FurniturePoint>
+  return typeof point.x === 'number' && Number.isFinite(point.x) && point.x >= 0 && point.x <= 100
+    && typeof point.y === 'number' && Number.isFinite(point.y) && point.y >= 0 && point.y <= 100
+    ? { x: point.x, y: point.y } : null
+}
+
 function readRoom(value: unknown, roomId: number): RoomProgress {
   const empty = newRoomProgress(roomId)
   if (!value || typeof value !== 'object') return empty
   const data = value as Partial<RoomProgress>
   const validCats = new Set(catsForRoom(roomId).map((cat) => cat.id))
-  const validUpgrades = new Set(upgradesForRoom(roomId).map((item) => item.id))
+  const roomUpgrades = upgradesForRoom(roomId)
+  const validUpgrades = new Set(roomUpgrades.map((item) => item.id))
+  const boughtUpgrades = Array.isArray(data.boughtUpgrades)
+    ? [...new Set(data.boughtUpgrades.filter((id): id is string => typeof id === 'string' && validUpgrades.has(id)))]
+    : []
+  const hasPositions = Object.prototype.hasOwnProperty.call(data, 'furniturePositions')
+  const furniturePositions = Object.fromEntries(boughtUpgrades.flatMap((id) => {
+    const upgrade = roomUpgrades.find((item) => item.id === id)
+    if (!upgrade) return []
+    if (!hasPositions) return [[id, defaultFurniturePosition(upgrade)]]
+    const raw = data.furniturePositions?.[id] as FurniturePosition | undefined
+    const desktop = readPoint(raw?.desktop)
+    const mobile = readPoint(raw?.mobile)
+    return desktop || mobile ? [[id, { ...(desktop && { desktop }), ...(mobile && { mobile }) }]] : []
+  }))
   const unlockedCats = Array.isArray(data.unlockedCats)
     ? [...new Set([firstCatForRoom(roomId).id, ...data.unlockedCats.filter((id): id is string => typeof id === 'string' && validCats.has(id))])]
     : empty.unlockedCats
@@ -26,9 +49,8 @@ function readRoom(value: unknown, roomId: number): RoomProgress {
       const level = data.resourceLevels?.[item.id]
       return [item.id, typeof level === 'number' && Number.isInteger(level) && level >= 0 ? Math.min(level, 1000) : 0]
     })),
-    boughtUpgrades: Array.isArray(data.boughtUpgrades)
-      ? [...new Set(data.boughtUpgrades.filter((id): id is string => typeof id === 'string' && validUpgrades.has(id)))]
-      : [],
+    boughtUpgrades,
+    furniturePositions,
     unlockedCats,
     selectedCat: typeof data.selectedCat === 'string' && unlockedCats.includes(data.selectedCat)
       ? data.selectedCat : firstCatForRoom(roomId).id,
@@ -72,6 +94,11 @@ function migrateOldSave(raw: string): GameState | null {
     ? newCats.filter((_, index) => oldUnlockedCats.includes(oldIds[index])).map((cat) => cat.id)
     : []
   const levels = old.upgradeLevels ?? {}
+  const boughtUpgrades = [
+    safeNumber(levels.bed) > 0 ? 'room-1-basic-2' : '',
+    safeNumber(levels.scratcher) > 0 ? 'room-1-basic-3' : '',
+    safeNumber(levels.yarn) > 0 ? 'room-1-basic-5' : '',
+  ].filter(Boolean)
   state.rooms[0] = {
     ...room,
     fish: Math.min(safeNumber(old.fish), 1e15),
@@ -79,11 +106,11 @@ function migrateOldSave(raw: string): GameState | null {
       ...room.resourceLevels,
       fish: Math.min(Math.floor(safeNumber(levels.bowl) + safeNumber(levels.mouse)), 1000),
     },
-    boughtUpgrades: [
-      safeNumber(levels.bed) > 0 ? 'room-1-basic-2' : '',
-      safeNumber(levels.scratcher) > 0 ? 'room-1-basic-3' : '',
-      safeNumber(levels.yarn) > 0 ? 'room-1-basic-5' : '',
-    ].filter(Boolean),
+    boughtUpgrades,
+    furniturePositions: Object.fromEntries(boughtUpgrades.flatMap((id) => {
+      const upgrade = upgradesForRoom(1).find((item) => item.id === id)
+      return upgrade ? [[id, defaultFurniturePosition(upgrade)]] : []
+    })),
     unlockedCats: [...new Set([room.unlockedCats[0], ...unlockedCats])],
     selectedCat: newCats.find((_, index) => old.selectedCat === oldIds[index] && unlockedCats.includes(newCats[index].id))?.id ?? room.selectedCat,
   }

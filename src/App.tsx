@@ -53,7 +53,7 @@ function App() {
     if (!item || progress.boughtUpgrades.includes(id) || progress.fish < upgradeCost(state, item)
       || (item.tier === 'advanced' && !basicUpgradesBought(state))) return
     dispatch({ type: 'buyUpgrade', id })
-    setNotice(`Улучшение куплено: ${item.name}`)
+    setNotice(`Улучшение куплено: ${item.name}. Предмет ждёт места под комнатой`)
   }
 
   function buyFood(id: string) {
@@ -87,9 +87,10 @@ function App() {
         <span>Комната {item.id}</span><strong>{item.name}</strong>
       </button>)}
     </nav>
-    <GameScene room={room} cat={cat} progress={progress} upgrades={upgradesForRoom(state.currentRoom)}
+    <GameScene key={`${state.mode}-${room.id}`} room={room} cat={cat} progress={progress}
       clickReward={currentClickReward(state)} showDoor={roomComplete(state) && state.currentRoom < rooms.length}
-      onClick={() => dispatch({ type: 'click' })} onDoor={() => { dispatch({ type: 'enterNextRoom' }); setPage('upgrades'); setNotice('Новая комната открыта') }} />
+      onClick={() => dispatch({ type: 'click' })} onDoor={() => { dispatch({ type: 'enterNextRoom' }); setPage('upgrades'); setNotice('Новая комната открыта') }}
+      onPlace={(id, layout, point) => dispatch({ type: 'placeFurniture', id, layout, ...point })} />
     <div className="lower-panel">
       <Navigation page={page} onChange={setPage} />
       {page === 'upgrades' && <Shop state={state} onBuy={buyUpgrade} />}

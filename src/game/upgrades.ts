@@ -1,4 +1,5 @@
 export type UpgradeTier = 'basic' | 'advanced'
+export type FurnitureSurface = 'floor' | 'wall'
 
 export interface ScenePlacement {
   x: number
@@ -20,6 +21,7 @@ export interface Upgrade {
   income: number
   baseCost: number
   placement: ScenePlacement
+  surface: FurnitureSurface
 }
 
 const names: { basic: string[]; advanced: string[] }[] = [
@@ -35,8 +37,17 @@ const advancedCosts = [18000, 42000, 95000, 220000, 500000]
 const basicIncome = [1, 2, 5, 12, 30]
 const advancedIncome = [50, 90, 160, 280, 480]
 
-// Percentages of the scene. Each tier has its own positions because a wall
-// fixture and the floor item it replaces need different places in the room.
+// Indices of fixtures that are attached to the wall rather than placed on the floor.
+const wallSlots: { basic: number[]; advanced: number[] }[] = [
+  { basic: [], advanced: [1] },
+  { basic: [1, 3], advanced: [2, 4] },
+  { basic: [4], advanced: [1] },
+  { basic: [4], advanced: [4] },
+  { basic: [], advanced: [] },
+]
+
+// Previous saves use these positions as their initial room layout.
+// New purchases wait in the furniture tray until the player places them.
 const place = (x: number, y: number, width: number, height: number, mobileX?: number, mobileY?: number, mobileHeight?: number): ScenePlacement =>
   ({ x, y, width, height, mobileX, mobileY, mobileHeight })
 
@@ -107,6 +118,7 @@ export const upgrades: Upgrade[] = names.flatMap((room, roomIndex) =>
     income: (tier === 'basic' ? basicIncome : advancedIncome)[index],
     baseCost: (tier === 'basic' ? basicCosts : advancedCosts)[index],
     placement: placements[roomIndex][tier][index],
+    surface: wallSlots[roomIndex][tier].includes(index) ? 'wall' : 'floor',
   }))),
 )
 

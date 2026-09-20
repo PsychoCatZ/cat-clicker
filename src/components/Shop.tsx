@@ -29,7 +29,7 @@ export function Shop({ state, onBuy }: Props) {
     <div className="tier-heading">Обычные · {upgrades.filter((item) => item.tier === 'basic' && progress.boughtUpgrades.includes(item.id)).length}/5</div>
     <div className="card-grid">{upgrades.filter((item) => item.tier === 'basic').map(renderCard)}</div>
     <div className="tier-heading">Продвинутые · {upgrades.filter((item) => item.tier === 'advanced' && progress.boughtUpgrades.includes(item.id)).length}/5</div>
-    <p className="tier-note">Продвинутый предмет заменяет обычный на том же месте в комнате. Доход обоих сохраняется.</p>
+    <p className="tier-note">Продвинутый предмет заменяет обычный в комнате. Доход обоих сохраняется.</p>
     <div className="card-grid">{upgrades.filter((item) => item.tier === 'advanced').map(renderCard)}</div>
   </section>
 }
