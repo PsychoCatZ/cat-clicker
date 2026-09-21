@@ -1,0 +1,439 @@
+// Records scripted and randomised play sessions of the web reducer so the Kotlin engine can replay them
+// and compare the resulting state. Usage (repo root, after `npm install`):
+//   node tools/android/export_engine_golden.mjs
+// Output: android/game/src/test/resources/golden/engine.json
+//
+// Step formats:
+//   { a: <GameAction> }      -> reducer(state, action)
+//   { fund: n }              -> set the current room's fish to n (test helper, like `fund` in check_game.mjs)
+//   { offline: seconds }     -> applyOfflineProgress(state, seconds)
+// `snap` (optional) is the expected state after the step.
+import { mkdirSync, writeFileSync } from 'node:fs'
+import { build } from 'esbuild'
+
+const bundled = await build({
+  stdin: {
+    contents: "export * from './src/game/economy.ts'; export * from './src/game/cats.ts'; export * from './src/game/upgrades.ts'; export * from './src/game/items.ts'; export * from './src/game/rooms.ts'; export * from './src/game/sliding/board.ts'; export * from './src/game/sliding/layouts.ts'; export * from './src/game/pairs/types.ts'; export * from './src/game/pairs/reducer.ts'; export * from './src/game/match3/board.ts'; export * from './src/game/mahjong/board.ts';",
+    resolveDir: process.cwd(),
+    sourcefile: 'engine-golden.ts',
+  },
+  bundle: true, platform: 'node', format: 'esm', write: false,
+})
+const game = await import(`data:text/javascript;base64,${Buffer.from(bundled.outputFiles[0].contents).toString('base64')}`)
+
+const snapshot = (state) => ({
+  mode: state.mode,
+  currentRoom: state.currentRoom,
+  unlockedRoom: state.unlockedRoom,
+  finalDismissed: state.finalDismissed,
+  offlineReport: state.offlineReport,
+  sliding: state.sliding.activeRound,
+  pairs: state.pairs.activeRound,
+  match3: state.match3.activeRound,
+  mahjong: state.mahjong.activeRound,
+  rooms: state.rooms.map((room) => ({
+    fish: room.fish,
+    hunger: room.hunger,
+    lightsOff: room.lightsOff,
+    resourceLevels: room.resourceLevels,
+    boughtUpgrades: room.boughtUpgrades,
+    furniturePositions: room.furniturePositions,
+    unlockedCats: room.unlockedCats,
+    selectedCat: room.selectedCat,
+    caviarSeconds: room.caviarSeconds,
+  })),
+})
+
+const setFish = (state, amount) => ({
+  ...state,
+  rooms: state.rooms.map((room, index) => index === state.currentRoom - 1 ? { ...room, fish: amount } : room),
+})
+
+function apply(state, step) {
+  if ('a' in step) return game.gameReducer(state, step.a)
+  if ('fund' in step) return setFish(state, step.fund)
+  if ('offline' in step) return game.applyOfflineProgress(state, step.offline)
+  throw new Error('Unknown step')
+}
+
+function record(name, steps, every) {
+  let state = game.initialState()
+  const out = steps.map((step, index) => {
+    state = apply(state, step)
+    return every === 1 || index % every === 0 || index === steps.length - 1 ? { ...step, snap: snapshot(state) } : step
+  })
+  return { name, steps: out }
+}
+
+// --- Scripted scenario mirroring tools/check_game.mjs ---
+const scripted = [
+  { a: { type: 'click' } },
+  { fund: 15 }, { a: { type: 'buyResource', id: 'fish' } }, { a: { type: 'buyResource', id: 'fish' } },
+  { fund: 1e9 }, { a: { type: 'buyResource', id: 'fish' } }, { a: { type: 'buyResource', id: 'nonsense' } },
+  { a: { type: 'buyUpgrade', id: 'room-1-advanced-1' } },
+  { a: { type: 'buyUpgrade', id: 'room-1-basic-1' } }, { a: { type: 'buyUpgrade', id: 'room-1-basic-1' } },
+  { a: { type: 'placeFurniture', id: 'room-1-basic-1', layout: 'desktop', x: 50, y: 10 } },
+  { a: { type: 'placeFurniture', id: 'room-1-basic-1', layout: 'mobile', x: 90, y: 90 } },
+  { a: { type: 'placeFurniture', id: 'room-1-advanced-2', layout: 'desktop', x: 30, y: 30 } },
+  { a: { type: 'tick', seconds: 1 } }, { a: { type: 'tick', seconds: 5 } }, { a: { type: 'tick', seconds: 0 } },
+  { a: { type: 'toggleLights' } }, { a: { type: 'click' } }, { a: { type: 'tick', seconds: 1 } },
+  { a: { type: 'toggleLights' } }, { a: { type: 'tick', seconds: 1 } }, { a: { type: 'click' } },
+  { a: { type: 'buyCat', id: 'basic-02' } }, { a: { type: 'selectCat', id: 'basic-01' } }, { a: { type: 'selectCat', id: 'basic-05' } },
+  { a: { type: 'buyFood', id: 'mouse' } }, { a: { type: 'buyFood', id: 'caviar' } }, { a: { type: 'tick', seconds: 1.5 } },
+  { a: { type: 'click' } },
+  { offline: 30 }, { offline: 3600 }, { offline: 99999 }, { a: { type: 'dismissOfflineReport' } },
+  { a: { type: 'visitRoom', roomId: 2 } }, { a: { type: 'enterNextRoom' } },
+  { a: { type: 'showFinal' } }, { a: { type: 'dismissFinal' } }, { a: { type: 'startExpert' } },
+  { a: { type: 'reset' } },
+]
+// Empty-hunger fallback income: half an hour of one-second ticks with nothing bought.
+const sleeping = [{ a: { type: 'reset' } }]
+for (let i = 0; i < 90; i += 1) sleeping.push({ offline: 60 })
+for (let i = 0; i < 1900; i += 1) sleeping.push({ a: { type: 'tick', seconds: 1 } })
+sleeping.push({ a: { type: 'buyFood', id: 'mouse' } })
+
+// --- Completionist: buys everything, walks through all five rooms, then starts Expert ---
+function completionist() {
+  const steps = []
+  for (let room = 1; room <= 5; room += 1) {
+    steps.push({ fund: 1e13 })
+    for (const resource of game.resources) for (let i = 0; i < 3; i += 1) steps.push({ a: { type: 'buyResource', id: resource.id } })
+    for (const food of game.foods) steps.push({ a: { type: 'buyFood', id: food.id } })
+    for (const cat of game.catsForRoom(room)) steps.push({ fund: 1e13 }, { a: { type: 'buyCat', id: cat.id } })
+    for (const tier of ['basic', 'advanced']) {
+      for (const upgrade of game.upgradesForRoom(room).filter((item) => item.tier === tier)) {
+        steps.push({ fund: 1e13 }, { a: { type: 'buyUpgrade', id: upgrade.id } })
+        steps.push({ a: { type: 'placeFurniture', id: upgrade.id, layout: room % 2 ? 'desktop' : 'mobile', x: 40 + room, y: 70 } })
+      }
+    }
+    steps.push({ a: { type: 'tick', seconds: 2 } }, { a: { type: 'enterNextRoom' } })
+    if (room < 5) steps.push({ a: { type: 'visitRoom', roomId: room } }, { a: { type: 'visitRoom', roomId: room + 1 } })
+  }
+  steps.push({ a: { type: 'dismissFinal' } }, { a: { type: 'showFinal' } }, { a: { type: 'startExpert' } })
+  steps.push({ fund: 1e13 }, { a: { type: 'buyUpgrade', id: 'room-1-basic-1' } }, { a: { type: 'tick', seconds: 2 } })
+  return steps
+}
+
+// --- Randomised bots (xorshift32, so the recording is reproducible) ---
+function bot(seed, count) {
+  let rng = seed >>> 0 || 1
+  const next = () => {
+    rng ^= rng << 13; rng >>>= 0
+    rng ^= rng >>> 17
+    rng ^= rng << 5; rng >>>= 0
+    return rng / 0x100000000
+  }
+  const pick = (list) => list[Math.floor(next() * list.length)]
+  const resourceIds = game.resources.map((item) => item.id).concat('bogus')
+  const foodIds = game.foods.map((item) => item.id).concat('bogus')
+  const upgradeIds = game.upgrades.map((item) => item.id)
+  const catIds = game.cats.map((item) => item.id)
+  const seconds = [0, 0.25, 0.5, 1, 1, 1, 1.5, 2, 2, 3, 10, -1]
+  const funds = [0, 10, 100, 1e3, 1e4, 1e5, 1e6, 1e8, 1e10, 1e12, 5e14]
+
+  let state = game.initialState()
+  const steps = []
+  for (let i = 0; i < count; i += 1) {
+    const roll = next()
+    let step
+    if (roll < 0.28) step = { a: { type: 'click' } }
+    else if (roll < 0.5) step = { a: { type: 'tick', seconds: pick(seconds) } }
+    else if (roll < 0.56) step = { fund: pick(funds) }
+    else if (roll < 0.62) step = { a: { type: 'buyResource', id: pick(resourceIds) } }
+    else if (roll < 0.68) step = { a: { type: 'buyFood', id: pick(foodIds) } }
+    else if (roll < 0.76) {
+      // Smart buy: first affordable cat or upgrade of the current room, so the bot actually progresses.
+      const room = state.currentRoom
+      const wanted = [
+        ...game.catsForRoom(room).map((item) => ({ type: 'buyCat', id: item.id })),
+        ...game.upgradesForRoom(room).map((item) => ({ type: 'buyUpgrade', id: item.id })),
+      ]
+      step = { a: pick(wanted) }
+    } else if (roll < 0.80) step = { a: { type: 'buyUpgrade', id: pick(upgradeIds) } }
+    else if (roll < 0.83) step = { a: { type: 'buyCat', id: pick(catIds) } }
+    else if (roll < 0.85) step = { a: { type: 'selectCat', id: pick(catIds) } }
+    else if (roll < 0.88) step = { a: { type: 'toggleLights' } }
+    else if (roll < 0.92) {
+      step = { a: { type: 'placeFurniture', id: pick(upgradeIds), layout: pick(['desktop', 'mobile', 'sideways']), x: next() * 110 - 5, y: next() * 110 - 5 } }
+    } else if (roll < 0.94) step = { a: { type: 'visitRoom', roomId: 1 + Math.floor(next() * 6) } }
+    else if (roll < 0.96) step = { a: { type: 'enterNextRoom' } }
+    else if (roll < 0.98) step = { offline: pick([0.5, 45, 600, 7200, 40000, 100000]) }
+    else if (roll < 0.985) step = { a: { type: pick(['dismissFinal', 'showFinal', 'dismissOfflineReport']) } }
+    else if (roll < 0.9875) step = { a: { type: 'startExpert' } }
+    else if (roll < 0.988) step = { a: { type: 'reset' } }
+    else step = { a: { type: 'click' } }
+    state = apply(state, step)
+    steps.push(step)
+  }
+  return steps
+}
+
+// --- Sliding puzzle: solve every difficulty by undoing the shuffle, plus early exits and invalid input ---
+function slidingSolve() {
+  const steps = [{ a: { type: 'reset' } }]
+  let seed = 4242
+  for (const difficulty of game.slidingDifficulties) {
+    const config = game.getSlidingConfig(difficulty)
+    for (const catId of [undefined, 'basic-03']) {
+      seed += 17
+      steps.push({ a: { type: 'startSliding', seed, difficulty, catId } })
+      steps.push({ a: { type: 'startSliding', seed: seed + 1, difficulty, catId } }) // ignored: a round is active
+      steps.push({ a: { type: 'slidingMove', tileId: 999 } })
+      const history = game.shuffleSlidingBoard(config.size, seed, config.shuffleMoves).history
+      steps.push({ a: { type: 'slidingReshuffle' } })
+      steps.push({ a: { type: 'settleSliding' } }) // early exit, no score
+      steps.push({ a: { type: 'startSliding', seed, difficulty, catId } })
+      for (const tileId of [...history].reverse()) steps.push({ a: { type: 'slidingMove', tileId } })
+      steps.push({ a: { type: 'slidingMove', tileId: 0 } }) // finished: ignored
+      steps.push({ a: { type: 'slidingReshuffle' } }) // finished: ignored
+      steps.push({ a: { type: 'settleSliding' } })
+    }
+  }
+  // A round started in room 1 pays into room 1 even after visiting another room.
+  steps.push({ fund: 1e13 })
+  for (const cat of game.catsForRoom(1)) steps.push({ fund: 1e13 }, { a: { type: 'buyCat', id: cat.id } })
+  for (const upgrade of game.upgradesForRoom(1)) steps.push({ fund: 1e13 }, { a: { type: 'buyUpgrade', id: upgrade.id } })
+  steps.push({ a: { type: 'enterNextRoom' } })
+  const history = game.shuffleSlidingBoard(3, 777, 72).history
+  steps.push({ a: { type: 'startSliding', seed: 777, difficulty: 'easy', catId: 'rare-02' } })
+  for (const tileId of [...history].reverse()) steps.push({ a: { type: 'slidingMove', tileId } })
+  steps.push({ a: { type: 'visitRoom', roomId: 1 } })
+  return steps
+}
+
+function slidingBot(seed, count) {
+  let rng = seed >>> 0 || 1
+  const next = () => {
+    rng ^= rng << 13; rng >>>= 0
+    rng ^= rng >>> 17
+    rng ^= rng << 5; rng >>>= 0
+    return rng / 0x100000000
+  }
+  const pick = (list) => list[Math.floor(next() * list.length)]
+  let state = game.initialState()
+  const steps = []
+  for (let i = 0; i < count; i += 1) {
+    const roll = next()
+    const round = state.sliding.activeRound
+    let step
+    if (roll < 0.05) step = { a: { type: 'startSliding', seed: Math.floor(next() * 0xffffffff), difficulty: pick(game.slidingDifficulties), catId: pick([undefined, 'basic-01', 'basic-05', 'rare-01']) } }
+    else if (roll < 0.10) step = { a: { type: 'slidingMove', tileId: Math.floor(next() * 26) } }
+    else if (roll < 0.13) step = { a: { type: 'slidingReshuffle' } }
+    else if (roll < 0.15) step = { a: { type: 'settleSliding' } }
+    else if (roll < 0.16) step = { fund: pick([0, 1e3, 1e13]) }
+    else if (roll < 0.17) step = { a: { type: pick(['buyUpgrade', 'buyCat']), id: pick(['room-1-basic-1', 'basic-02', 'room-1-basic-2']) } }
+    else if (roll < 0.175) step = { a: { type: 'visitRoom', roomId: 1 } }
+    else if (round) {
+      const movable = game.movableSlidingTileIds(round.tiles, round.size)
+      step = { a: { type: 'slidingMove', tileId: pick(movable) } }
+    } else step = { a: { type: 'tick', seconds: 1 } }
+    state = apply(state, step)
+    steps.push(step)
+  }
+  return steps
+}
+
+// --- Find the pair: play whole rounds of every size, with mismatches, locks and early exits ---
+function pairsSolve() {
+  const steps = [{ a: { type: 'reset' } }]
+  const catIds = game.catsForRoom(1).map((cat) => cat.id)
+  let seed = 900
+  for (const cardCount of game.PAIRS_CARD_COUNTS) {
+    seed += 13
+    const round = game.createPairsRound(1, 'normal', catIds, seed, cardCount)
+    steps.push({ a: { type: 'startPairs', seed, cardCount } })
+    steps.push({ a: { type: 'startPairs', seed: seed + 1, cardCount } }) // ignored: a round is active
+    const first = round.cards[0]
+    const wrong = round.cards.find((card) => card.catId !== first.catId)
+    steps.push({ a: { type: 'pairsReveal', cardId: first.id } })
+    steps.push({ a: { type: 'pairsReveal', cardId: first.id } }) // same card twice: ignored
+    steps.push({ a: { type: 'pairsReveal', cardId: wrong.id } }) // mismatch
+    steps.push({ a: { type: 'pairsReveal', cardId: round.cards[2].id } }) // board is locked
+    steps.push({ a: { type: 'pairsHideMismatch' } })
+    steps.push({ a: { type: 'pairsHideMismatch' } }) // nothing to hide
+    const byCat = new Map()
+    for (const card of round.cards) byCat.set(card.catId, [...(byCat.get(card.catId) ?? []), card])
+    for (const cards of byCat.values()) {
+      for (let i = 0; i + 1 < cards.length; i += 2) {
+        steps.push({ a: { type: 'pairsReveal', cardId: cards[i].id } })
+        steps.push({ a: { type: 'pairsReveal', cardId: cards[i + 1].id } })
+      }
+    }
+    steps.push({ a: { type: 'pairsReveal', cardId: 0 } }) // finished: ignored
+    steps.push({ a: { type: 'settlePairs' } })
+    // Early exit after a single match.
+    steps.push({ a: { type: 'startPairs', seed: seed + 5, cardCount } })
+    const other = game.createPairsRound(1, 'normal', catIds, seed + 5, cardCount)
+    const pair = other.cards.filter((card) => card.catId === other.cards[0].catId)
+    steps.push({ a: { type: 'pairsReveal', cardId: pair[0].id } }, { a: { type: 'pairsReveal', cardId: pair[1].id } })
+    steps.push({ a: { type: 'settlePairs' } })
+  }
+  // (An unsupported size is ignored by the Kotlin engine; the web reducer relies on TypeScript types instead,
+  // so that case is covered by PairsGameTest and not recorded here.)
+  return steps
+}
+
+function pairsBot(seed, count) {
+  let rng = seed >>> 0 || 1
+  const next = () => {
+    rng ^= rng << 13; rng >>>= 0
+    rng ^= rng >>> 17
+    rng ^= rng << 5; rng >>>= 0
+    return rng / 0x100000000
+  }
+  const pick = (list) => list[Math.floor(next() * list.length)]
+  let state = game.initialState()
+  const steps = []
+  for (let i = 0; i < count; i += 1) {
+    const roll = next()
+    const round = state.pairs.activeRound
+    let step
+    if (roll < 0.04) step = { a: { type: 'startPairs', seed: Math.floor(next() * 0xffffffff), cardCount: pick([10, 16, 20]) } }
+    else if (roll < 0.08) step = { a: { type: 'pairsReveal', cardId: Math.floor(next() * 22) } }
+    else if (roll < 0.10) step = { a: { type: 'settlePairs' } }
+    else if (roll < 0.12) step = { a: { type: 'pairsHideMismatch' } }
+    else if (round && round.status === 'playing') {
+      if (round.revealed.length === 2 && round.lastMatch === false) step = { a: { type: 'pairsHideMismatch' } }
+      else if (round.revealed.length === 1 && next() < 0.5) {
+        const first = round.cards.find((card) => card.id === round.revealed[0])
+        const match = round.cards.find((card) => !card.matched && card.id !== first.id && card.catId === first.catId)
+        step = { a: { type: 'pairsReveal', cardId: match.id } }
+      } else step = { a: { type: 'pairsReveal', cardId: pick(round.cards.filter((card) => !card.matched)).id } }
+    } else step = { a: { type: 'tick', seconds: 1 } }
+    state = apply(state, step)
+    steps.push(step)
+  }
+  return steps
+}
+
+// --- Cats in a row (match-3): scripted rounds with valid, invalid and non-adjacent swaps, plus a random bot ---
+function match3Play(seed, count, exitEarly) {
+  let rng = seed >>> 0 || 1
+  const next = () => {
+    rng ^= rng << 13; rng >>>= 0
+    rng ^= rng >>> 17
+    rng ^= rng << 5; rng >>>= 0
+    return rng / 0x100000000
+  }
+  const pick = (list) => list[Math.floor(next() * list.length)]
+  let state = game.initialState()
+  const steps = []
+  const push = (step) => { state = apply(state, step); steps.push(step) }
+  push({ a: { type: 'startMatch3', seed: seed * 7 + 1 } })
+  push({ a: { type: 'startMatch3', seed: 5 } }) // ignored: a round is active
+  for (let i = 0; i < count; i += 1) {
+    const round = state.match3.activeRound
+    if (!round) {
+      if (next() < 0.5) push({ a: { type: 'startMatch3', seed: Math.floor(next() * 0xffffffff) } })
+      else push({ a: { type: 'tick', seconds: 1 } })
+      continue
+    }
+    const roll = next()
+    if (roll < 0.55) {
+      const move = game.findPossibleSwap(round.board)
+      push({ a: { type: 'match3Swap', first: move[0], second: move[1] } })
+    } else if (roll < 0.75) {
+      const first = Math.floor(next() * 49)
+      const second = pick([first + 1, first - 1, first + 7, first - 7])
+      push({ a: { type: 'match3Swap', first, second } }) // may or may not make a line
+    } else if (roll < 0.82) {
+      push({ a: { type: 'match3Swap', first: Math.floor(next() * 49), second: Math.floor(next() * 60) - 5 } })
+    } else if (roll < 0.86 && exitEarly) {
+      push({ a: { type: 'settleMatch3' } })
+    } else {
+      const move = game.findPossibleSwap(round.board)
+      push({ a: { type: 'match3Swap', first: move[0], second: move[1] } })
+    }
+  }
+  if (state.match3.activeRound) push({ a: { type: 'settleMatch3' } })
+  return steps
+}
+
+// --- Cat mahjong: clear whole boards by always taking the first available pair (which can dead-end and
+// need a shuffle), plus a bot that also selects locked tiles, asks for hints and settles early ---
+function mahjongSolve(seed, difficulty, roomFund) {
+  let state = game.initialState()
+  const steps = []
+  const push = (step) => { state = apply(state, step); steps.push(step) }
+  push({ a: { type: 'startMahjong', seed, difficulty } })
+  push({ a: { type: 'startMahjong', seed: seed + 1, difficulty: 'easy' } }) // ignored: a round is active
+  push({ a: { type: 'mahjongShuffle' } }) // not a dead end: ignored
+  push({ a: { type: 'mahjongHint' } })
+  for (let guard = 0; guard < 300; guard += 1) {
+    const round = state.mahjong.activeRound
+    if (!round || round.status !== 'playing') break
+    const pairs = game.findMahjongPairs(round.tiles)
+    if (pairs.length === 0) {
+      push({ a: { type: 'mahjongShuffle' } })
+      continue
+    }
+    const pair = pairs[Math.floor(pairs.length / 2) % pairs.length]
+    push({ a: { type: 'mahjongSelect', tileId: pair[0] } })
+    push({ a: { type: 'mahjongSelect', tileId: pair[1] } })
+  }
+  push({ a: { type: 'mahjongSelect', tileId: 0 } }) // finished: ignored
+  push({ a: { type: 'settleMahjong' } })
+  return steps
+}
+
+function mahjongBot(seed, count) {
+  let rng = seed >>> 0 || 1
+  const next = () => {
+    rng ^= rng << 13; rng >>>= 0
+    rng ^= rng >>> 17
+    rng ^= rng << 5; rng >>>= 0
+    return rng / 0x100000000
+  }
+  const pick = (list) => list[Math.floor(next() * list.length)]
+  let state = game.initialState()
+  const steps = []
+  const push = (step) => { state = apply(state, step); steps.push(step) }
+  for (let i = 0; i < count; i += 1) {
+    const round = state.mahjong.activeRound
+    if (!round) {
+      if (next() < 0.6) push({ a: { type: 'startMahjong', seed: Math.floor(next() * 0xffffffff), difficulty: pick(['easy', 'easy', 'normal', 'hard']) } })
+      else push({ a: { type: 'tick', seconds: 1 } })
+      continue
+    }
+    const roll = next()
+    const pairs = game.findMahjongPairs(round.tiles)
+    if (round.status === 'playing' && pairs.length === 0 && next() < 0.7) push({ a: { type: 'mahjongShuffle' } })
+    else if (roll < 0.5 && pairs.length > 0) {
+      const pair = pick(pairs)
+      push({ a: { type: 'mahjongSelect', tileId: pair[0] } })
+      push({ a: { type: 'mahjongSelect', tileId: pair[1] } })
+    } else if (roll < 0.62) push({ a: { type: 'mahjongSelect', tileId: Math.floor(next() * 60) } })
+    else if (roll < 0.68) push({ a: { type: 'mahjongSelect', tileId: (pick(game.freeMahjongTiles(round.tiles)) ?? { id: 0 }).id } })
+    else if (roll < 0.74) push({ a: { type: 'mahjongHint' } })
+    else if (roll < 0.78) push({ a: { type: 'mahjongShuffle' } })
+    else if (roll < 0.80) push({ a: { type: 'settleMahjong' } })
+    else if (pairs.length > 0) {
+      const pair = pick(pairs)
+      push({ a: { type: 'mahjongSelect', tileId: pair[0] } })
+      push({ a: { type: 'mahjongSelect', tileId: pair[1] } })
+    } else push({ a: { type: 'tick', seconds: 1 } })
+  }
+  return steps
+}
+
+const scenarios = [
+  record('scripted', scripted, 1),
+  record('fallback-income', sleeping, 25),
+  record('completionist', completionist(), 3),
+  ...[11, 2027, 90210, 424242].map((seed) => record(`bot-${seed}`, bot(seed, 3000), 20)),
+  record('sliding-solve', slidingSolve(), 6),
+  ...[5, 77, 31337].map((seed) => record(`sliding-bot-${seed}`, slidingBot(seed, 1500), 12)),
+  record('pairs-solve', pairsSolve(), 4),
+  ...[8, 606, 12345].map((seed) => record(`pairs-bot-${seed}`, pairsBot(seed, 1500), 12)),
+  ...[3, 99, 2026, 77777].map((seed) => record(`match3-${seed}`, match3Play(seed, 60, seed % 2 === 1), 3)),
+  ...['easy', 'normal', 'hard'].flatMap((difficulty, i) => [1000, 555].map((seed) => record(`mahjong-${difficulty}-${seed}`, mahjongSolve(seed + i, difficulty), 6))),
+  ...[41, 5150, 909].map((seed) => record(`mahjong-bot-${seed}`, mahjongBot(seed, 700), 30)),
+]
+
+const outDir = 'android/game/src/test/resources/golden'
+mkdirSync(outDir, { recursive: true })
+writeFileSync(`${outDir}/engine.json`, JSON.stringify({ scenarios }))
+for (const scenario of scenarios) {
+  const last = scenario.steps.at(-1).snap
+  console.log(`${scenario.name}: ${scenario.steps.length} steps, final room ${last.currentRoom}/${last.unlockedRoom}, mode ${last.mode}`)
+}

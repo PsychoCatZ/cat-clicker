@@ -1,0 +1,1225 @@
+{
+ "rooms": [
+  {
+   "id": 1,
+   "name": "Комната",
+   "catGroup": "basic",
+   "day": "/assets/backgrounds/room-1-day.png",
+   "night": "/assets/backgrounds/room-1-night.png",
+   "match3Background": "/assets/backgrounds/match3-room-1.png"
+  },
+  {
+   "id": 2,
+   "name": "Уютный приют",
+   "catGroup": "rare",
+   "day": "/assets/backgrounds/room-2-day.png",
+   "night": "/assets/backgrounds/room-2-night.png",
+   "match3Background": "/assets/backgrounds/match3-room-2.png"
+  },
+  {
+   "id": 3,
+   "name": "Котодом",
+   "catGroup": "special",
+   "day": "/assets/backgrounds/room-3-day.png",
+   "night": "/assets/backgrounds/room-3-night.png",
+   "match3Background": "/assets/backgrounds/match3-room-3.png"
+  },
+  {
+   "id": 4,
+   "name": "Котоцентр",
+   "catGroup": "superhero",
+   "day": "/assets/backgrounds/room-4-day.png",
+   "night": "/assets/backgrounds/room-4-night.png",
+   "match3Background": "/assets/backgrounds/match3-room-4.png"
+  },
+  {
+   "id": 5,
+   "name": "Штаб Котификации",
+   "catGroup": "ai",
+   "day": "/assets/backgrounds/room-5-day.png",
+   "night": "/assets/backgrounds/room-5-night.png",
+   "match3Background": "/assets/backgrounds/match3-room-5.png"
+  }
+ ],
+ "cats": [
+  {
+   "id": "basic-01",
+   "name": "Рыжик",
+   "roomId": 1,
+   "image": "/assets/cats/basic/01.png",
+   "sleepingImage": "/assets/cats/basic/sleep/01.png",
+   "baseCost": 0
+  },
+  {
+   "id": "basic-02",
+   "name": "Уголёк",
+   "roomId": 1,
+   "image": "/assets/cats/basic/02.png",
+   "sleepingImage": "/assets/cats/basic/sleep/02.png",
+   "baseCost": 150
+  },
+  {
+   "id": "basic-03",
+   "name": "Полоска",
+   "roomId": 1,
+   "image": "/assets/cats/basic/03.png",
+   "sleepingImage": "/assets/cats/basic/sleep/03.png",
+   "baseCost": 1800
+  },
+  {
+   "id": "basic-04",
+   "name": "Снежка",
+   "roomId": 1,
+   "image": "/assets/cats/basic/04.png",
+   "sleepingImage": "/assets/cats/basic/sleep/04.png",
+   "baseCost": 18000
+  },
+  {
+   "id": "basic-05",
+   "name": "Ирис",
+   "roomId": 1,
+   "image": "/assets/cats/basic/05.png",
+   "sleepingImage": "/assets/cats/basic/sleep/05.png",
+   "baseCost": 180000
+  },
+  {
+   "id": "rare-01",
+   "name": "Калико",
+   "roomId": 2,
+   "image": "/assets/cats/rare/01.png",
+   "sleepingImage": "/assets/cats/rare/sleep/01.png",
+   "baseCost": 0
+  },
+  {
+   "id": "rare-02",
+   "name": "Тучка",
+   "roomId": 2,
+   "image": "/assets/cats/rare/02.png",
+   "sleepingImage": "/assets/cats/rare/sleep/02.png",
+   "baseCost": 150
+  },
+  {
+   "id": "rare-03",
+   "name": "Пингвин",
+   "roomId": 2,
+   "image": "/assets/cats/rare/03.png",
+   "sleepingImage": "/assets/cats/rare/sleep/03.png",
+   "baseCost": 1800
+  },
+  {
+   "id": "rare-04",
+   "name": "Персик",
+   "roomId": 2,
+   "image": "/assets/cats/rare/04.png",
+   "sleepingImage": "/assets/cats/rare/sleep/04.png",
+   "baseCost": 18000
+  },
+  {
+   "id": "rare-05",
+   "name": "Луна",
+   "roomId": 2,
+   "image": "/assets/cats/rare/05.png",
+   "sleepingImage": "/assets/cats/rare/sleep/05.png",
+   "baseCost": 180000
+  },
+  {
+   "id": "special-01",
+   "name": "Гроза",
+   "roomId": 3,
+   "image": "/assets/cats/special/01.png",
+   "sleepingImage": "/assets/cats/special/sleep/01.png",
+   "baseCost": 0
+  },
+  {
+   "id": "special-02",
+   "name": "Пончик",
+   "roomId": 3,
+   "image": "/assets/cats/special/02.png",
+   "sleepingImage": "/assets/cats/special/sleep/02.png",
+   "baseCost": 150
+  },
+  {
+   "id": "special-03",
+   "name": "Искра",
+   "roomId": 3,
+   "image": "/assets/cats/special/03.png",
+   "sleepingImage": "/assets/cats/special/sleep/03.png",
+   "baseCost": 1800
+  },
+  {
+   "id": "special-04",
+   "name": "Облачко",
+   "roomId": 3,
+   "image": "/assets/cats/special/04.png",
+   "sleepingImage": "/assets/cats/special/sleep/04.png",
+   "baseCost": 18000
+  },
+  {
+   "id": "special-05",
+   "name": "Ночь",
+   "roomId": 3,
+   "image": "/assets/cats/special/05.png",
+   "sleepingImage": "/assets/cats/special/sleep/05.png",
+   "baseCost": 180000
+  },
+  {
+   "id": "superhero-01",
+   "name": "Тень",
+   "roomId": 4,
+   "image": "/assets/cats/superhero/01.png",
+   "sleepingImage": "/assets/cats/superhero/sleep/01.png",
+   "baseCost": 0
+  },
+  {
+   "id": "superhero-02",
+   "name": "Паутинка",
+   "roomId": 4,
+   "image": "/assets/cats/superhero/02.png",
+   "sleepingImage": "/assets/cats/superhero/sleep/02.png",
+   "baseCost": 150
+  },
+  {
+   "id": "superhero-03",
+   "name": "Броня",
+   "roomId": 4,
+   "image": "/assets/cats/superhero/03.png",
+   "sleepingImage": "/assets/cats/superhero/sleep/03.png",
+   "baseCost": 1800
+  },
+  {
+   "id": "superhero-04",
+   "name": "Щит",
+   "roomId": 4,
+   "image": "/assets/cats/superhero/04.png",
+   "sleepingImage": "/assets/cats/superhero/sleep/04.png",
+   "baseCost": 18000
+  },
+  {
+   "id": "superhero-05",
+   "name": "Плащ",
+   "roomId": 4,
+   "image": "/assets/cats/superhero/05.png",
+   "sleepingImage": "/assets/cats/superhero/sleep/05.png",
+   "baseCost": 180000
+  },
+  {
+   "id": "ai-01",
+   "name": "Дип",
+   "roomId": 5,
+   "image": "/assets/cats/ai/01.png",
+   "sleepingImage": "/assets/cats/ai/sleep/01.png",
+   "baseCost": 0
+  },
+  {
+   "id": "ai-02",
+   "name": "Кью",
+   "roomId": 5,
+   "image": "/assets/cats/ai/02.png",
+   "sleepingImage": "/assets/cats/ai/sleep/02.png",
+   "baseCost": 150
+  },
+  {
+   "id": "ai-03",
+   "name": "Джем",
+   "roomId": 5,
+   "image": "/assets/cats/ai/03.png",
+   "sleepingImage": "/assets/cats/ai/sleep/03.png",
+   "baseCost": 1800
+  },
+  {
+   "id": "ai-04",
+   "name": "Клод",
+   "roomId": 5,
+   "image": "/assets/cats/ai/04.png",
+   "sleepingImage": "/assets/cats/ai/sleep/04.png",
+   "baseCost": 18000
+  },
+  {
+   "id": "ai-05",
+   "name": "Чатти",
+   "roomId": 5,
+   "image": "/assets/cats/ai/05.png",
+   "sleepingImage": "/assets/cats/ai/sleep/05.png",
+   "baseCost": 180000
+  }
+ ],
+ "upgrades": [
+  {
+   "id": "room-1-basic-1",
+   "roomId": 1,
+   "tier": "basic",
+   "slot": 0,
+   "name": "Миска с рыбой",
+   "image": "/assets/upgrades/room-1/basic/01.png",
+   "income": 1,
+   "baseCost": 45,
+   "placement": {
+    "x": 17,
+    "y": 83,
+    "width": 17,
+    "height": 22
+   },
+   "surface": "floor"
+  },
+  {
+   "id": "room-1-basic-2",
+   "roomId": 1,
+   "tier": "basic",
+   "slot": 1,
+   "name": "Мягкая лежанка",
+   "image": "/assets/upgrades/room-1/basic/02.png",
+   "income": 2,
+   "baseCost": 180,
+   "placement": {
+    "x": 78,
+    "y": 82,
+    "width": 23,
+    "height": 25
+   },
+   "surface": "floor"
+  },
+  {
+   "id": "room-1-basic-3",
+   "roomId": 1,
+   "tier": "basic",
+   "slot": 2,
+   "name": "Когтеточка",
+   "image": "/assets/upgrades/room-1/basic/03.png",
+   "income": 5,
+   "baseCost": 700,
+   "placement": {
+    "x": 72,
+    "y": 63,
+    "width": 18,
+    "height": 41
+   },
+   "surface": "floor"
+  },
+  {
+   "id": "room-1-basic-4",
+   "roomId": 1,
+   "tier": "basic",
+   "slot": 3,
+   "name": "Игрушечная мышь",
+   "image": "/assets/upgrades/room-1/basic/04.png",
+   "income": 12,
+   "baseCost": 2600,
+   "placement": {
+    "x": 28,
+    "y": 70,
+    "width": 15,
+    "height": 16
+   },
+   "surface": "floor"
+  },
+  {
+   "id": "room-1-basic-5",
+   "roomId": 1,
+   "tier": "basic",
+   "slot": 4,
+   "name": "Клубок",
+   "image": "/assets/upgrades/room-1/basic/05.png",
+   "income": 30,
+   "baseCost": 9000,
+   "placement": {
+    "x": 84,
+    "y": 69,
+    "width": 15,
+    "height": 19
+   },
+   "surface": "floor"
+  },
+  {
+   "id": "room-1-advanced-1",
+   "roomId": 1,
+   "tier": "advanced",
+   "slot": 0,
+   "name": "Домик",
+   "image": "/assets/upgrades/room-1/advanced/01.png",
+   "income": 50,
+   "baseCost": 18000,
+   "placement": {
+    "x": 17,
+    "y": 76,
+    "width": 25,
+    "height": 39,
+    "mobileX": 19,
+    "mobileY": 79
+   },
+   "surface": "floor"
+  },
+  {
+   "id": "room-1-advanced-2",
+   "roomId": 1,
+   "tier": "advanced",
+   "slot": 1,
+   "name": "Окно с птицами",
+   "image": "/assets/upgrades/room-1/advanced/02.png",
+   "income": 90,
+   "baseCost": 42000,
+   "placement": {
+    "x": 27,
+    "y": 38,
+    "width": 25,
+    "height": 37,
+    "mobileX": 24,
+    "mobileY": 32
+   },
+   "surface": "wall"
+  },
+  {
+   "id": "room-1-advanced-3",
+   "roomId": 1,
+   "tier": "advanced",
+   "slot": 2,
+   "name": "Автокормушка",
+   "image": "/assets/upgrades/room-1/advanced/03.png",
+   "income": 160,
+   "baseCost": 95000,
+   "placement": {
+    "x": 85,
+    "y": 83,
+    "width": 19,
+    "height": 30,
+    "mobileX": 81,
+    "mobileY": 89,
+    "mobileHeight": 21
+   },
+   "surface": "floor"
+  },
+  {
+   "id": "room-1-advanced-4",
+   "roomId": 1,
+   "tier": "advanced",
+   "slot": 3,
+   "name": "Фонтанчик",
+   "image": "/assets/upgrades/room-1/advanced/04.png",
+   "income": 280,
+   "baseCost": 220000,
+   "placement": {
+    "x": 68,
+    "y": 82,
+    "width": 19,
+    "height": 25,
+    "mobileX": 81,
+    "mobileY": 69,
+    "mobileHeight": 22
+   },
+   "surface": "floor"
+  },
+  {
+   "id": "room-1-advanced-5",
+   "roomId": 1,
+   "tier": "advanced",
+   "slot": 4,
+   "name": "Игровой комплекс",
+   "image": "/assets/upgrades/room-1/advanced/05.png",
+   "income": 480,
+   "baseCost": 500000,
+   "placement": {
+    "x": 76,
+    "y": 54,
+    "width": 27,
+    "height": 39,
+    "mobileX": 80,
+    "mobileY": 44
+   },
+   "surface": "floor"
+  },
+  {
+   "id": "room-2-basic-1",
+   "roomId": 2,
+   "tier": "basic",
+   "slot": 0,
+   "name": "Туннель",
+   "image": "/assets/upgrades/room-2/basic/01.png",
+   "income": 1,
+   "baseCost": 45,
+   "placement": {
+    "x": 18,
+    "y": 82,
+    "width": 26,
+    "height": 27
+   },
+   "surface": "floor"
+  },
+  {
+   "id": "room-2-basic-2",
+   "roomId": 2,
+   "tier": "basic",
+   "slot": 1,
+   "name": "Настенные полки",
+   "image": "/assets/upgrades/room-2/basic/02.png",
+   "income": 2,
+   "baseCost": 180,
+   "placement": {
+    "x": 73,
+    "y": 39,
+    "width": 27,
+    "height": 37,
+    "mobileX": 76,
+    "mobileY": 31
+   },
+   "surface": "wall"
+  },
+  {
+   "id": "room-2-basic-3",
+   "roomId": 2,
+   "tier": "basic",
+   "slot": 2,
+   "name": "Кошачья трава",
+   "image": "/assets/upgrades/room-2/basic/04.png",
+   "income": 5,
+   "baseCost": 700,
+   "placement": {
+    "x": 82,
+    "y": 80,
+    "width": 19,
+    "height": 25
+   },
+   "surface": "floor"
+  },
+  {
+   "id": "room-2-basic-4",
+   "roomId": 2,
+   "tier": "basic",
+   "slot": 3,
+   "name": "Гамак",
+   "image": "/assets/upgrades/room-2/basic/03.png",
+   "income": 12,
+   "baseCost": 2600,
+   "placement": {
+    "x": 27,
+    "y": 47,
+    "width": 26,
+    "height": 27,
+    "mobileX": 24,
+    "mobileY": 36
+   },
+   "surface": "wall"
+  },
+  {
+   "id": "room-2-basic-5",
+   "roomId": 2,
+   "tier": "basic",
+   "slot": 4,
+   "name": "Щётка",
+   "image": "/assets/upgrades/room-2/basic/05.png",
+   "income": 30,
+   "baseCost": 9000,
+   "placement": {
+    "x": 77,
+    "y": 66,
+    "width": 19,
+    "height": 29
+   },
+   "surface": "floor"
+  },
+  {
+   "id": "room-2-advanced-1",
+   "roomId": 2,
+   "tier": "advanced",
+   "slot": 0,
+   "name": "Лазерная игрушка",
+   "image": "/assets/upgrades/room-2/advanced/01.png",
+   "income": 50,
+   "baseCost": 18000,
+   "placement": {
+    "x": 20,
+    "y": 71,
+    "width": 19,
+    "height": 30
+   },
+   "surface": "floor"
+  },
+  {
+   "id": "room-2-advanced-2",
+   "roomId": 2,
+   "tier": "advanced",
+   "slot": 1,
+   "name": "Робомышь",
+   "image": "/assets/upgrades/room-2/advanced/02.png",
+   "income": 90,
+   "baseCost": 42000,
+   "placement": {
+    "x": 30,
+    "y": 83,
+    "width": 17,
+    "height": 18
+   },
+   "surface": "floor"
+  },
+  {
+   "id": "room-2-advanced-3",
+   "roomId": 2,
+   "tier": "advanced",
+   "slot": 2,
+   "name": "Аквариум",
+   "image": "/assets/upgrades/room-2/advanced/03.png",
+   "income": 160,
+   "baseCost": 95000,
+   "placement": {
+    "x": 72,
+    "y": 39,
+    "width": 27,
+    "height": 35,
+    "mobileX": 77,
+    "mobileY": 31
+   },
+   "surface": "wall"
+  },
+  {
+   "id": "room-2-advanced-4",
+   "roomId": 2,
+   "tier": "advanced",
+   "slot": 3,
+   "name": "Массажная арка",
+   "image": "/assets/upgrades/room-2/advanced/04.png",
+   "income": 280,
+   "baseCost": 220000,
+   "placement": {
+    "x": 79,
+    "y": 73,
+    "width": 22,
+    "height": 35
+   },
+   "surface": "floor"
+  },
+  {
+   "id": "room-2-advanced-5",
+   "roomId": 2,
+   "tier": "advanced",
+   "slot": 4,
+   "name": "Подвесной мост",
+   "image": "/assets/upgrades/room-2/advanced/05.png",
+   "income": 480,
+   "baseCost": 500000,
+   "placement": {
+    "x": 29,
+    "y": 33,
+    "width": 29,
+    "height": 29,
+    "mobileX": 27,
+    "mobileY": 26
+   },
+   "surface": "wall"
+  },
+  {
+   "id": "room-3-basic-1",
+   "roomId": 3,
+   "tier": "basic",
+   "slot": 0,
+   "name": "Тёплая лежанка",
+   "image": "/assets/upgrades/room-3/basic/01.png",
+   "income": 1,
+   "baseCost": 45,
+   "placement": {
+    "x": 17,
+    "y": 84,
+    "width": 22,
+    "height": 25
+   },
+   "surface": "floor"
+  },
+  {
+   "id": "room-3-basic-2",
+   "roomId": 3,
+   "tier": "basic",
+   "slot": 1,
+   "name": "Замок",
+   "image": "/assets/upgrades/room-3/basic/02.png",
+   "income": 2,
+   "baseCost": 180,
+   "placement": {
+    "x": 77,
+    "y": 68,
+    "width": 28,
+    "height": 47
+   },
+   "surface": "floor"
+  },
+  {
+   "id": "room-3-basic-3",
+   "roomId": 3,
+   "tier": "basic",
+   "slot": 2,
+   "name": "Головоломка",
+   "image": "/assets/upgrades/room-3/basic/03.png",
+   "income": 5,
+   "baseCost": 700,
+   "placement": {
+    "x": 82,
+    "y": 84,
+    "width": 20,
+    "height": 21
+   },
+   "surface": "floor"
+  },
+  {
+   "id": "room-3-basic-4",
+   "roomId": 3,
+   "tier": "basic",
+   "slot": 3,
+   "name": "Когтеточка-дерево",
+   "image": "/assets/upgrades/room-3/basic/04.png",
+   "income": 12,
+   "baseCost": 2600,
+   "placement": {
+    "x": 29,
+    "y": 62,
+    "width": 20,
+    "height": 40
+   },
+   "surface": "floor"
+  },
+  {
+   "id": "room-3-basic-5",
+   "roomId": 3,
+   "tier": "basic",
+   "slot": 4,
+   "name": "Кошачий телевизор",
+   "image": "/assets/upgrades/room-3/basic/05.png",
+   "income": 30,
+   "baseCost": 9000,
+   "placement": {
+    "x": 27,
+    "y": 38,
+    "width": 25,
+    "height": 35,
+    "mobileX": 26,
+    "mobileY": 31
+   },
+   "surface": "wall"
+  },
+  {
+   "id": "room-3-advanced-1",
+   "roomId": 3,
+   "tier": "advanced",
+   "slot": 0,
+   "name": "Голограмма рыбок",
+   "image": "/assets/upgrades/room-3/advanced/01.png",
+   "income": 50,
+   "baseCost": 18000,
+   "placement": {
+    "x": 24,
+    "y": 48,
+    "width": 20,
+    "height": 34,
+    "mobileX": 23,
+    "mobileY": 39
+   },
+   "surface": "floor"
+  },
+  {
+   "id": "room-3-advanced-2",
+   "roomId": 3,
+   "tier": "advanced",
+   "slot": 1,
+   "name": "Игровая стена",
+   "image": "/assets/upgrades/room-3/advanced/02.png",
+   "income": 90,
+   "baseCost": 42000,
+   "placement": {
+    "x": 73,
+    "y": 38,
+    "width": 28,
+    "height": 42,
+    "mobileX": 76,
+    "mobileY": 31
+   },
+   "surface": "wall"
+  },
+  {
+   "id": "room-3-advanced-3",
+   "roomId": 3,
+   "tier": "advanced",
+   "slot": 2,
+   "name": "Капсула сна",
+   "image": "/assets/upgrades/room-3/advanced/03.png",
+   "income": 160,
+   "baseCost": 95000,
+   "placement": {
+    "x": 17,
+    "y": 82,
+    "width": 24,
+    "height": 35
+   },
+   "surface": "floor"
+  },
+  {
+   "id": "room-3-advanced-4",
+   "roomId": 3,
+   "tier": "advanced",
+   "slot": 3,
+   "name": "Умная кормушка",
+   "image": "/assets/upgrades/room-3/advanced/04.png",
+   "income": 280,
+   "baseCost": 220000,
+   "placement": {
+    "x": 83,
+    "y": 84,
+    "width": 20,
+    "height": 27
+   },
+   "surface": "floor"
+  },
+  {
+   "id": "room-3-advanced-5",
+   "roomId": 3,
+   "tier": "advanced",
+   "slot": 4,
+   "name": "Умный домик",
+   "image": "/assets/upgrades/room-3/advanced/05.png",
+   "income": 480,
+   "baseCost": 500000,
+   "placement": {
+    "x": 72,
+    "y": 66,
+    "width": 26,
+    "height": 42
+   },
+   "surface": "floor"
+  },
+  {
+   "id": "room-4-basic-1",
+   "roomId": 4,
+   "tier": "basic",
+   "slot": 0,
+   "name": "Проектор",
+   "image": "/assets/upgrades/room-4/basic/01.png",
+   "income": 1,
+   "baseCost": 45,
+   "placement": {
+    "x": 31,
+    "y": 56,
+    "width": 18,
+    "height": 38,
+    "mobileX": 24,
+    "mobileY": 49
+   },
+   "surface": "floor"
+  },
+  {
+   "id": "room-4-basic-2",
+   "roomId": 4,
+   "tier": "basic",
+   "slot": 1,
+   "name": "Шкаф костюмов",
+   "image": "/assets/upgrades/room-4/basic/02.png",
+   "income": 2,
+   "baseCost": 180,
+   "placement": {
+    "x": 18,
+    "y": 67,
+    "width": 23,
+    "height": 46
+   },
+   "surface": "floor"
+  },
+  {
+   "id": "room-4-basic-3",
+   "roomId": 4,
+   "tier": "basic",
+   "slot": 2,
+   "name": "Тренажёр",
+   "image": "/assets/upgrades/room-4/basic/03.png",
+   "income": 5,
+   "baseCost": 700,
+   "placement": {
+    "x": 79,
+    "y": 67,
+    "width": 23,
+    "height": 43
+   },
+   "surface": "floor"
+  },
+  {
+   "id": "room-4-basic-4",
+   "roomId": 4,
+   "tier": "basic",
+   "slot": 3,
+   "name": "Сундук героя",
+   "image": "/assets/upgrades/room-4/basic/04.png",
+   "income": 12,
+   "baseCost": 2600,
+   "placement": {
+    "x": 22,
+    "y": 86,
+    "width": 21,
+    "height": 23
+   },
+   "surface": "floor"
+  },
+  {
+   "id": "room-4-basic-5",
+   "roomId": 4,
+   "tier": "basic",
+   "slot": 4,
+   "name": "Зал славы",
+   "image": "/assets/upgrades/room-4/basic/05.png",
+   "income": 30,
+   "baseCost": 9000,
+   "placement": {
+    "x": 73,
+    "y": 36,
+    "width": 25,
+    "height": 35,
+    "mobileX": 76,
+    "mobileY": 30
+   },
+   "surface": "wall"
+  },
+  {
+   "id": "room-4-advanced-1",
+   "roomId": 4,
+   "tier": "advanced",
+   "slot": 0,
+   "name": "Карта города",
+   "image": "/assets/upgrades/room-4/advanced/01.png",
+   "income": 50,
+   "baseCost": 18000,
+   "placement": {
+    "x": 26,
+    "y": 59,
+    "width": 27,
+    "height": 34
+   },
+   "surface": "floor"
+  },
+  {
+   "id": "room-4-advanced-2",
+   "roomId": 4,
+   "tier": "advanced",
+   "slot": 1,
+   "name": "Энергостанция",
+   "image": "/assets/upgrades/room-4/advanced/02.png",
+   "income": 90,
+   "baseCost": 42000,
+   "placement": {
+    "x": 80,
+    "y": 54,
+    "width": 26,
+    "height": 42,
+    "mobileX": 80,
+    "mobileY": 45
+   },
+   "surface": "floor"
+  },
+  {
+   "id": "room-4-advanced-3",
+   "roomId": 4,
+   "tier": "advanced",
+   "slot": 2,
+   "name": "Медкапсула",
+   "image": "/assets/upgrades/room-4/advanced/03.png",
+   "income": 160,
+   "baseCost": 95000,
+   "placement": {
+    "x": 18,
+    "y": 81,
+    "width": 25,
+    "height": 39
+   },
+   "surface": "floor"
+  },
+  {
+   "id": "room-4-advanced-4",
+   "roomId": 4,
+   "tier": "advanced",
+   "slot": 3,
+   "name": "Портал",
+   "image": "/assets/upgrades/room-4/advanced/04.png",
+   "income": 280,
+   "baseCost": 220000,
+   "placement": {
+    "x": 78,
+    "y": 82,
+    "width": 25,
+    "height": 39
+   },
+   "surface": "floor"
+  },
+  {
+   "id": "room-4-advanced-5",
+   "roomId": 4,
+   "tier": "advanced",
+   "slot": 4,
+   "name": "Витрина наград",
+   "image": "/assets/upgrades/room-4/advanced/05.png",
+   "income": 480,
+   "baseCost": 500000,
+   "placement": {
+    "x": 70,
+    "y": 32,
+    "width": 26,
+    "height": 38,
+    "mobileX": 75,
+    "mobileY": 27
+   },
+   "surface": "wall"
+  },
+  {
+   "id": "room-5-basic-1",
+   "roomId": 5,
+   "tier": "basic",
+   "slot": 0,
+   "name": "Капсула уюта",
+   "image": "/assets/upgrades/room-5/basic/01.png",
+   "income": 1,
+   "baseCost": 45,
+   "placement": {
+    "x": 18,
+    "y": 82,
+    "width": 24,
+    "height": 35
+   },
+   "surface": "floor"
+  },
+  {
+   "id": "room-5-basic-2",
+   "roomId": 5,
+   "tier": "basic",
+   "slot": 1,
+   "name": "Голографическая когтеточка",
+   "image": "/assets/upgrades/room-5/basic/02.png",
+   "income": 2,
+   "baseCost": 180,
+   "placement": {
+    "x": 29,
+    "y": 52,
+    "width": 20,
+    "height": 39,
+    "mobileX": 25,
+    "mobileY": 44
+   },
+   "surface": "floor"
+  },
+  {
+   "id": "room-5-basic-3",
+   "roomId": 5,
+   "tier": "basic",
+   "slot": 2,
+   "name": "Автокормушка",
+   "image": "/assets/upgrades/room-5/basic/03.png",
+   "income": 5,
+   "baseCost": 700,
+   "placement": {
+    "x": 83,
+    "y": 83,
+    "width": 20,
+    "height": 33
+   },
+   "surface": "floor"
+  },
+  {
+   "id": "room-5-basic-4",
+   "roomId": 5,
+   "tier": "basic",
+   "slot": 3,
+   "name": "Пульт управления",
+   "image": "/assets/upgrades/room-5/basic/04.png",
+   "income": 12,
+   "baseCost": 2600,
+   "placement": {
+    "x": 72,
+    "y": 43,
+    "width": 26,
+    "height": 34,
+    "mobileX": 76,
+    "mobileY": 34
+   },
+   "surface": "floor"
+  },
+  {
+   "id": "room-5-basic-5",
+   "roomId": 5,
+   "tier": "basic",
+   "slot": 4,
+   "name": "Сервер",
+   "image": "/assets/upgrades/room-5/basic/05.png",
+   "income": 30,
+   "baseCost": 9000,
+   "placement": {
+    "x": 79,
+    "y": 69,
+    "width": 23,
+    "height": 42
+   },
+   "surface": "floor"
+  },
+  {
+   "id": "room-5-advanced-1",
+   "roomId": 5,
+   "tier": "advanced",
+   "slot": 0,
+   "name": "Станция спасения",
+   "image": "/assets/upgrades/room-5/advanced/01.png",
+   "income": 50,
+   "baseCost": 18000,
+   "placement": {
+    "x": 18,
+    "y": 76,
+    "width": 26,
+    "height": 44
+   },
+   "surface": "floor"
+  },
+  {
+   "id": "room-5-advanced-2",
+   "roomId": 5,
+   "tier": "advanced",
+   "slot": 1,
+   "name": "Аналитический стол",
+   "image": "/assets/upgrades/room-5/advanced/02.png",
+   "income": 90,
+   "baseCost": 42000,
+   "placement": {
+    "x": 27,
+    "y": 45,
+    "width": 28,
+    "height": 37,
+    "mobileX": 25,
+    "mobileY": 36
+   },
+   "surface": "floor"
+  },
+  {
+   "id": "room-5-advanced-3",
+   "roomId": 5,
+   "tier": "advanced",
+   "slot": 2,
+   "name": "Умное кресло",
+   "image": "/assets/upgrades/room-5/advanced/03.png",
+   "income": 160,
+   "baseCost": 95000,
+   "placement": {
+    "x": 79,
+    "y": 82,
+    "width": 22,
+    "height": 34
+   },
+   "surface": "floor"
+  },
+  {
+   "id": "room-5-advanced-4",
+   "roomId": 5,
+   "tier": "advanced",
+   "slot": 3,
+   "name": "Капсула будущего",
+   "image": "/assets/upgrades/room-5/advanced/04.png",
+   "income": 280,
+   "baseCost": 220000,
+   "placement": {
+    "x": 79,
+    "y": 57,
+    "width": 24,
+    "height": 42,
+    "mobileX": 79,
+    "mobileY": 49
+   },
+   "surface": "floor"
+  },
+  {
+   "id": "room-5-advanced-5",
+   "roomId": 5,
+   "tier": "advanced",
+   "slot": 4,
+   "name": "Центр Котификации",
+   "image": "/assets/upgrades/room-5/advanced/05.png",
+   "income": 480,
+   "baseCost": 500000,
+   "placement": {
+    "x": 69,
+    "y": 34,
+    "width": 28,
+    "height": 40,
+    "mobileX": 75,
+    "mobileY": 27
+   },
+   "surface": "floor"
+  }
+ ],
+ "resources": [
+  {
+   "id": "fish",
+   "name": "Рыбка",
+   "image": "/assets/resources/01.png",
+   "bonus": 1,
+   "baseCost": 15,
+   "growth": 1.85
+  },
+  {
+   "id": "school",
+   "name": "Стайка рыб",
+   "image": "/assets/resources/02.png",
+   "bonus": 4,
+   "baseCost": 500,
+   "growth": 2
+  },
+  {
+   "id": "golden",
+   "name": "Золотая рыбка",
+   "image": "/assets/resources/03.png",
+   "bonus": 12,
+   "baseCost": 6000,
+   "growth": 2.1
+  },
+  {
+   "id": "coin",
+   "name": "Лапомонета",
+   "image": "/assets/resources/04.png",
+   "bonus": 35,
+   "baseCost": 60000,
+   "growth": 2.2
+  },
+  {
+   "id": "gift",
+   "name": "Подарок",
+   "image": "/assets/resources/05.png",
+   "bonus": 100,
+   "baseCost": 250000,
+   "growth": 2.3
+  }
+ ],
+ "foods": [
+  {
+   "id": "mouse",
+   "name": "Мышка",
+   "image": "/assets/food/01.png",
+   "restore": 25,
+   "baseCost": 60
+  },
+  {
+   "id": "dry",
+   "name": "Сухой корм",
+   "image": "/assets/food/02.png",
+   "restore": 50,
+   "baseCost": 160
+  },
+  {
+   "id": "wet",
+   "name": "Влажный корм",
+   "image": "/assets/food/03.png",
+   "restore": 100,
+   "baseCost": 360
+  },
+  {
+   "id": "caviar",
+   "name": "Икра",
+   "image": "/assets/food/04.png",
+   "restore": 100,
+   "baseCost": 750,
+   "boostSeconds": 60
+  }
+ ],
+ "balance": {
+  "expertCostScale": 2.5,
+  "roomScales": [
+   1,
+   1.5,
+   2.25,
+   3.375,
+   5.0625
+  ]
+ }
+}
