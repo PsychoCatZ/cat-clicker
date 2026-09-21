@@ -1,14 +1,16 @@
 import { catsForRoom, firstCatForRoom } from './cats'
-import { initialState, newRoomProgress, type GameMode, type GameState, type RoomProgress } from './economy'
+import { applyOfflineProgress, initialState, newRoomProgress, type GameMode, type GameState, type RoomProgress } from './economy'
 import { defaultFurniturePosition, type FurniturePoint, type FurniturePosition } from './furniture'
 import { resources } from './items'
 import { findMatchRuns, findPossibleSwap } from './match3/board'
 import { MATCH3_MOVES, MATCH3_SIZE, type Match3Round, type Match3Tile } from './match3/types'
+import { PAIRS_CARD_COUNTS, type PairCard, type PairsCardCount, type PairsRound, type PairsRulesId } from './pairs/types'
 import { rooms } from './rooms'
 import { upgradesForRoom } from './upgrades'
 
-const SAVE_KEY = 'cat-clicker-save-v3'
-const PREVIOUS_SAVE_KEY = 'cat-clicker-save-v2'
+const SAVE_KEY = 'cat-clicker-save-v4'
+const PREVIOUS_SAVE_KEY = 'cat-clicker-save-v3'
+const LEGACY_SAVE_KEY = 'cat-clicker-save-v2'
 const OLD_SAVE_KEY = 'cat-clicker-save-v1'
 
 const safeNumber = (value: unknown, fallback = 0): number =>
@@ -103,6 +105,61 @@ function readMatch3Round(value: unknown, mode: GameMode, currentRoom: number, un
   }
 }
 
+function readPairsRound(value: unknown, mode: GameMode, currentRoom: number, unlockedRoom: number): PairsRound | null {
+  if (!value || typeof value !== 'object') return null
+  const data = value as Partial<PairsRound>
+  const roomId = typeof data.roomId === 'number' && Number.isInteger(data.roomId) ? data.roomId : 0
+  const rawRulesId = (value as { rulesId?: unknown }).rulesId
+  const legacy = rawRulesId === 'pairs-5'
+  const parsedCardCount = typeof rawRulesId === 'string' ? Number(rawRulesId.replace('pairs-', '')) : 0
+  const cardCount = legacy ? 10 : PAIRS_CARD_COUNTS.find((count) => count === parsedCardCount)
+  if (roomId !== currentRoom || roomId < 1 || roomId > unlockedRoom || data.mode !== mode || !cardCount) return null
+  const validCats = new Set(catsForRoom(roomId).map((cat) => cat.id))
+  if (!Array.isArray(data.cards) || data.cards.length !== cardCount) return null
+  const ids = new Set<number>()
+  const counts = new Map<string, number>()
+  const cards: PairCard[] = []
+  for (const value of data.cards as unknown[]) {
+    if (!value || typeof value !== 'object') return null
+    const card = value as Partial<PairCard>
+    if (typeof card.id !== 'number' || !Number.isInteger(card.id) || card.id < 0 || ids.has(card.id)
+      || typeof card.catId !== 'string' || !validCats.has(card.catId) || typeof card.matched !== 'boolean') return null
+    ids.add(card.id)
+    counts.set(card.catId, (counts.get(card.catId) ?? 0) + 1)
+    cards.push({ id: card.id, catId: card.catId, matched: card.matched })
+  }
+  const actualCounts = [...validCats].map((catId) => counts.get(catId) ?? 0).sort((a, b) => a - b)
+  const expectedCounts = cardCount === 10 ? [2, 2, 2, 2, 2]
+    : cardCount === 16 ? [2, 2, 4, 4, 4] : [4, 4, 4, 4, 4]
+  if (actualCounts.some((count, index) => count !== expectedCounts[index])) return null
+  const matchedCards = cards.filter((card) => card.matched)
+  if (matchedCards.length % 2 !== 0 || [...validCats].some((catId) => {
+    const count = matchedCards.filter((card) => card.catId === catId).length
+    return count % 2 !== 0
+  })) return null
+  const matches = matchedCards.length / 2
+  const revealed = Array.isArray(data.revealed)
+    ? data.revealed.filter((id): id is number => typeof id === 'number' && Number.isInteger(id) && ids.has(id)).slice(0, 2)
+    : []
+  if (new Set(revealed).size !== revealed.length || revealed.some((id) => cards.find((card) => card.id === id)?.matched)) return null
+  if (revealed.length === 2 && cards.find((card) => card.id === revealed[0])?.catId === cards.find((card) => card.id === revealed[1])?.catId) return null
+  const attempts = Math.min(100000, Math.floor(safeNumber(data.attempts)))
+  return {
+    id: typeof data.id === 'string' ? data.id.slice(0, 100) : `${roomId}-${mode}-pairs-saved`,
+    roomId,
+    mode,
+    rulesId: `pairs-${cardCount}` as PairsRulesId,
+    cardCount: cardCount as PairsCardCount,
+    cards,
+    revealed,
+    attempts,
+    matches,
+    status: matches === cardCount / 2 ? 'finished' : 'playing',
+    lastMatch: revealed.length === 2 ? false : data.lastMatch === true ? true : null,
+    rngState: typeof data.rngState === 'number' && Number.isInteger(data.rngState) ? data.rngState >>> 0 || 1 : 1,
+  }
+}
+
 function readCurrentSave(raw: string): GameState | null {
   const value: unknown = JSON.parse(raw)
   if (!value || typeof value !== 'object') return null
@@ -114,7 +171,7 @@ function readCurrentSave(raw: string): GameState | null {
     ? Math.max(1, Math.min(unlockedRoom, data.currentRoom as number)) : 1
   const elapsedSeconds = typeof data.savedAt === 'number' && Number.isFinite(data.savedAt)
     ? Math.max(0, (Date.now() - data.savedAt) / 1000) : 0
-  return {
+  const state: GameState = {
     mode,
     currentRoom,
     unlockedRoom,
@@ -125,8 +182,14 @@ function readCurrentSave(raw: string): GameState | null {
     match3: {
       activeRound: readMatch3Round(data.match3?.activeRound, mode, currentRoom, unlockedRoom),
     },
+    pairs: {
+      activeRound: readPairsRound(data.pairs?.activeRound, mode, currentRoom, unlockedRoom),
+    },
+    offlineReport: null,
     finalDismissed: data.finalDismissed === true,
   }
+  if (state.match3.activeRound && state.pairs.activeRound) state.pairs.activeRound = null
+  return applyOfflineProgress(state, elapsedSeconds)
 }
 
 function migrateOldSave(raw: string): GameState | null {
@@ -171,6 +234,8 @@ export function loadGame(): GameState {
     if (current) return readCurrentSave(current) ?? initialState()
     const previous = localStorage.getItem(PREVIOUS_SAVE_KEY)
     if (previous) return readCurrentSave(previous) ?? initialState()
+    const legacy = localStorage.getItem(LEGACY_SAVE_KEY)
+    if (legacy) return readCurrentSave(legacy) ?? initialState()
     const old = localStorage.getItem(OLD_SAVE_KEY)
     if (old) return migrateOldSave(old) ?? initialState()
   } catch {
@@ -181,7 +246,7 @@ export function loadGame(): GameState {
 
 export function saveGame(state: GameState): void {
   try {
-    localStorage.setItem(SAVE_KEY, JSON.stringify({ ...state, savedAt: Date.now() }))
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ ...state, offlineReport: null, savedAt: Date.now() }))
   } catch {
     // Gameplay remains available when storage is blocked.
   }

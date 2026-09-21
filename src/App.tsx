@@ -1,9 +1,11 @@
-import { useEffect, useReducer, useState } from 'react'
+import { useCallback, useEffect, useReducer, useState } from 'react'
 import { CatCollection } from './components/CatCollection'
 import { FoodShop } from './components/FoodShop'
 import { GameScene } from './components/GameScene'
 import { Match3Game } from './components/Match3Game'
+import { MiniGamesHub } from './components/MiniGamesHub'
 import { Navigation, type Page } from './components/Navigation'
+import { PairsGame } from './components/PairsGame'
 import { ResourceBar } from './components/ResourceBar'
 import { ResourceShop } from './components/ResourceShop'
 import { Shop } from './components/Shop'
@@ -14,11 +16,21 @@ import { rooms } from './game/rooms'
 import { loadGame, saveGame } from './game/save'
 import { upgradesForRoom } from './game/upgrades'
 import { match3FishReward } from './game/match3/scoring'
+import { pairsFishReward } from './game/pairs/scoring'
+
+const formatAwayTime = (seconds: number): string => {
+  const minutes = Math.max(1, Math.floor(seconds / 60))
+  if (minutes < 60) return `${minutes} мин`
+  const hours = Math.floor(minutes / 60)
+  const rest = minutes % 60
+  return rest ? `${hours} ч ${rest} мин` : `${hours} ч`
+}
 
 function App() {
   const [state, dispatch] = useReducer(gameReducer, undefined, loadGame)
-  const [page, setPage] = useState<Page>(() => state.match3.activeRound ? 'match3' : 'upgrades')
+  const [page, setPage] = useState<Page>(() => state.match3.activeRound ? 'match3' : state.pairs.activeRound ? 'pairs' : 'upgrades')
   const [notice, setNotice] = useState('')
+  const hidePairMismatch = useCallback(() => dispatch({ type: 'pairsHideMismatch' }), [])
   const progress = activeProgress(state)
   const room = rooms[state.currentRoom - 1]
   const cat = cats.find((item) => item.id === progress.selectedCat) ?? catsForRoom(state.currentRoom)[0]
@@ -36,14 +48,14 @@ function App() {
   }, [notice])
 
   function resetProgress() {
-    if (window.confirm('Полностью сбросить все комнаты, рыбок, котов, ресурсы, улучшения и мини-игру?')) {
+    if (window.confirm('Полностью сбросить все комнаты, рыбок, котов, ресурсы, улучшения и мини-игры?')) {
       dispatch({ type: 'reset' })
       setPage('upgrades')
       setNotice('Прогресс сброшен')
     }
   }
 
-  function finishMatch3(nextPage: Page = 'upgrades') {
+  function finishMatch3(nextPage: Page = 'minigames') {
     const round = state.match3.activeRound
     const reward = round ? match3FishReward(round.score, round.roomId, round.mode) : 0
     if (round) dispatch({ type: 'settleMatch3' })
@@ -51,18 +63,30 @@ function App() {
     if (round) setNotice(reward > 0 ? `Котификация: +${reward.toLocaleString('ru-RU')} рыбок` : 'Раунд завершён')
   }
 
+  function finishPairs(nextPage: Page = 'minigames') {
+    const round = state.pairs.activeRound
+    const reward = round ? pairsFishReward(round.matches, round.attempts, round.cardCount / 2, round.roomId, round.mode, round.status === 'finished') : 0
+    if (round) dispatch({ type: 'settlePairs' })
+    setPage(nextPage)
+    if (round) setNotice(reward > 0 ? `Котификация: +${reward.toLocaleString('ru-RU')} рыбок` : 'Раунд завершён')
+  }
+
   function changePage(nextPage: Page) {
     if (page === 'match3' && nextPage !== 'match3') finishMatch3(nextPage)
+    else if (page === 'pairs' && nextPage !== 'pairs') finishPairs(nextPage)
     else setPage(nextPage)
   }
 
   function visitRoom(roomId: number) {
     const round = state.match3.activeRound
-    const reward = round ? match3FishReward(round.score, round.roomId, round.mode) : 0
+    const pairsRound = state.pairs.activeRound
+    const reward = round ? match3FishReward(round.score, round.roomId, round.mode)
+      : pairsRound ? pairsFishReward(pairsRound.matches, pairsRound.attempts, pairsRound.cardCount / 2, pairsRound.roomId, pairsRound.mode, pairsRound.status === 'finished') : 0
     if (round) dispatch({ type: 'settleMatch3' })
+    if (pairsRound) dispatch({ type: 'settlePairs' })
     dispatch({ type: 'visitRoom', roomId })
     setPage('upgrades')
-    if (round) setNotice(reward > 0 ? `Котификация: +${reward.toLocaleString('ru-RU')} рыбок` : 'Раунд завершён')
+    if (round || pairsRound) setNotice(reward > 0 ? `Котификация: +${reward.toLocaleString('ru-RU')} рыбок` : 'Раунд завершён')
   }
 
   function buyResource(id: string) {
@@ -102,6 +126,33 @@ function App() {
     }
   }
 
+  const offlineNotice = state.offlineReport && <aside className="offline-report" role="status">
+    <div>
+      <strong>Котики ждали вас {formatAwayTime(state.offlineReport.elapsedSeconds)}</strong>
+      <span>Пассивный доход: +{Math.floor(state.offlineReport.fishEarned).toLocaleString('ru-RU')} рыбок · Сытость: −{state.offlineReport.hungerSpent.toFixed(1)}%</span>
+      {state.offlineReport.elapsedSeconds > state.offlineReport.creditedSeconds && <small>Доход и расход сытости учтены максимум за 8 часов.</small>}
+    </div>
+    <button type="button" onClick={() => dispatch({ type: 'dismissOfflineReport' })} aria-label="Закрыть сводку">Понятно</button>
+  </aside>
+
+  if (page === 'match3' && state.match3.activeRound) return <main className="app-shell mini-game-focus-shell">
+    <Match3Game room={room} mode={state.mode} round={state.match3.activeRound}
+      onStart={() => undefined}
+      onSwap={(first, second) => dispatch({ type: 'match3Swap', first, second })}
+      onExit={() => finishMatch3()} />
+    {offlineNotice}
+    {notice && <div className="notice" role="status">{notice}</div>}
+  </main>
+
+  if (page === 'pairs' && state.pairs.activeRound) return <main className="app-shell mini-game-focus-shell">
+    <PairsGame room={room} mode={state.mode} round={state.pairs.activeRound}
+      onReveal={(cardId) => dispatch({ type: 'pairsReveal', cardId })}
+      onHideMismatch={hidePairMismatch}
+      onExit={() => finishPairs()} />
+    {offlineNotice}
+    {notice && <div className="notice" role="status">{notice}</div>}
+  </main>
+
   return <main className="app-shell">
     <ResourceBar state={state} onReset={resetProgress} onToggleLights={() => dispatch({ type: 'toggleLights' })} />
     <nav className="room-tabs" aria-label="Комнаты">
@@ -111,24 +162,24 @@ function App() {
         <span>Комната {item.id}</span><strong>{item.name}</strong>
       </button>)}
     </nav>
-    {page !== 'match3' && <GameScene key={`${state.mode}-${room.id}`} room={room} cat={cat} progress={progress}
+    <GameScene key={`${state.mode}-${room.id}`} room={room} cat={cat} progress={progress}
       clickReward={currentClickReward(state)} showDoor={roomComplete(state) && state.currentRoom < rooms.length}
       onClick={() => dispatch({ type: 'click' })} onDoor={() => { dispatch({ type: 'enterNextRoom' }); setPage('upgrades'); setNotice('Новая комната открыта') }}
-      onPlace={(id, layout, point) => dispatch({ type: 'placeFurniture', id, layout, ...point })} />}
-    <div className={`lower-panel${page === 'match3' ? ' match3-lower-panel' : ''}`}>
+      onPlace={(id, layout, point) => dispatch({ type: 'placeFurniture', id, layout, ...point })} />
+    <div className="lower-panel">
       <Navigation page={page} onChange={changePage} />
       {page === 'upgrades' && <Shop state={state} onBuy={buyUpgrade} />}
       {page === 'resources' && <ResourceShop state={state} onBuy={buyResource} />}
       {page === 'food' && <FoodShop state={state} onBuy={buyFood} />}
       {page === 'cats' && <CatCollection state={state} onBuy={buyCat} onSelect={(id) => dispatch({ type: 'selectCat', id })} />}
-      {page === 'match3' && <Match3Game room={room} mode={state.mode} round={state.match3.activeRound}
-        onStart={() => dispatch({ type: 'startMatch3', seed: Date.now() })}
-        onSwap={(first, second) => dispatch({ type: 'match3Swap', first, second })}
-        onExit={() => finishMatch3()} />}
+      {page === 'minigames' && <MiniGamesHub room={room}
+        onStartMatch3={() => { dispatch({ type: 'startMatch3', seed: Date.now() }); setPage('match3') }}
+        onStartPairs={(cardCount) => { dispatch({ type: 'startPairs', seed: Date.now(), cardCount }); setPage('pairs') }} />}
     </div>
     {finished && state.finalDismissed && <button type="button" className="final-reopen" onClick={() => dispatch({ type: 'showFinal' })}>Все коты спасены · Финал</button>}
     <footer>Пять комнат · двадцать пять котов · одна большая Котификация</footer>
     {notice && <div className="notice" role="status">{notice}</div>}
+    {offlineNotice}
     {finished && !state.finalDismissed && <div className="final-backdrop" role="dialog" aria-modal="true" aria-label="Все коты спасены">
       <div className="final-card">
         <img src="/assets/ui/final.png" alt="Котификация началась! Все коты собраны" />

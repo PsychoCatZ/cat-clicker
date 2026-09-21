@@ -5,7 +5,7 @@ import { build } from 'esbuild'
 
 const bundled = await build({
   stdin: {
-    contents: "export * from './src/game/economy.ts'; export * from './src/game/cats.ts'; export * from './src/game/upgrades.ts'; export * from './src/game/items.ts'; export * from './src/game/rooms.ts'; export * from './src/game/save.ts'; export * from './src/game/furniture.ts'; export * from './src/game/match3/board.ts'; export * from './src/game/match3/scoring.ts';",
+    contents: "export * from './src/game/economy.ts'; export * from './src/game/cats.ts'; export * from './src/game/upgrades.ts'; export * from './src/game/items.ts'; export * from './src/game/rooms.ts'; export * from './src/game/save.ts'; export * from './src/game/furniture.ts'; export * from './src/game/match3/board.ts'; export * from './src/game/match3/scoring.ts'; export * from './src/game/pairs/scoring.ts';",
     resolveDir: process.cwd(),
     sourcefile: 'verification.ts',
   },
@@ -149,11 +149,43 @@ assert.equal(game.loadGame().rooms[0].lightsOff, true, 'manual sleep survives re
 let savedRound = reduce(game.initialState(), { type: 'startMatch3', seed: 54321 })
 game.saveGame(savedRound)
 assert.deepEqual(game.loadGame().match3.activeRound, savedRound.match3.activeRound, 'active match-3 round survives reload')
+let savedPairs = reduce(game.initialState(), { type: 'startPairs', seed: 98765, cardCount: 16 })
+savedPairs = reduce(savedPairs, { type: 'pairsReveal', cardId: savedPairs.pairs.activeRound.cards[0].id })
+game.saveGame(savedPairs)
+assert.deepEqual(game.loadGame().pairs.activeRound, savedPairs.pairs.activeRound, 'active pairs round survives reload')
+const legacyPairs = reduce(game.initialState(), { type: 'startPairs', seed: 45678, cardCount: 10 })
+legacyPairs.pairs.activeRound.rulesId = 'pairs-5'
+delete legacyPairs.pairs.activeRound.cardCount
+saved.set('cat-clicker-save-v4', JSON.stringify({ ...legacyPairs, savedAt: Date.now() }))
+assert.equal(game.loadGame().pairs.activeRound.rulesId, 'pairs-10', 'original ten-card round migrates to the sized rules id')
+assert.equal(game.loadGame().pairs.activeRound.cardCount, 10)
+let offline = game.initialState()
+offline.rooms[0].boughtUpgrades = ['room-1-basic-1']
+offline = game.applyOfflineProgress(offline, 60 * 60)
+assert.equal(offline.rooms[0].fish, 3600, 'passive income is credited while away')
+assert.equal(offline.rooms[0].hunger, 0, 'hunger is spent while away with lights on')
+assert.equal(offline.offlineReport.fishEarned, 3600)
+let offlineRest = game.initialState()
+offlineRest.rooms[0].boughtUpgrades = ['room-1-basic-1']
+offlineRest.rooms[0].lightsOff = true
+offlineRest = game.applyOfflineProgress(offlineRest, 60 * 60)
+assert.equal(offlineRest.rooms[0].hunger, 100, 'lights off protects hunger while away')
+assert.equal(offlineRest.rooms[0].fish, 3600, 'passive income continues while resting')
+const cappedOffline = game.applyOfflineProgress(offlineRest, 10 * 60 * 60)
+assert.equal(cappedOffline.rooms[0].fish - offlineRest.rooms[0].fish, 8 * 60 * 60, 'offline income is capped at eight hours')
+let richSleeper = game.initialState()
+richSleeper.rooms[0].fish = 500
+richSleeper.rooms[0].hunger = 0
+richSleeper = game.applyOfflineProgress(richSleeper, 60 * 60)
+assert.equal(richSleeper.rooms[0].fish, 500, 'safety income never reduces an existing balance')
 const legacyV2 = game.initialState()
 legacyV2.rooms[0].boughtUpgrades = ['room-1-basic-1']
 delete legacyV2.rooms[0].furniturePositions
 delete legacyV2.rooms[0].lightsOff
 delete legacyV2.match3
+delete legacyV2.pairs
+delete legacyV2.offlineReport
+saved.delete('cat-clicker-save-v4')
 saved.delete('cat-clicker-save-v3')
 saved.set('cat-clicker-save-v2', JSON.stringify(legacyV2))
 assert.ok(game.loadGame().rooms[0].furniturePositions['room-1-basic-1'].desktop, 'older saves keep their room layout')
@@ -181,4 +213,4 @@ state = reduce(state, { type: 'reset' })
 assert.equal(state.mode, 'normal')
 assert.equal(state.currentRoom, 1)
 assert.deepEqual(game.activeProgress(state).furniturePositions, {}, 'reset clears room decoration')
-console.log('Game checks passed: purchases, furniture placement, lights, hunger, fallback, five rooms, save, Expert and reset.')
+console.log('Game checks passed: purchases, furniture placement, lights, hunger, offline progress, five rooms, save, Expert and reset.')

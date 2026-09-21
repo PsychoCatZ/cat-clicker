@@ -64,7 +64,7 @@ export function Match3Game({ room, mode, round, onStart, onSwap, onExit }: Props
   return <section className="match3-screen" style={{ backgroundImage: `url(${room.match3Background})` }} aria-labelledby="match3-title">
     <div className="match3-card">
       <div className="match3-title-row">
-        <div><span className="eyebrow">Спокойная мини-игра · {room.name}</span><h2 id="match3-title">Котики в ряд</h2></div>
+        <div><span className="eyebrow">Сосредоточенный режим · {room.name}</span><h2 id="match3-title">Котики в ряд</h2></div>
         {round && <button type="button" className="match3-exit" onClick={onExit}>Закончить игру</button>}
       </div>
 
