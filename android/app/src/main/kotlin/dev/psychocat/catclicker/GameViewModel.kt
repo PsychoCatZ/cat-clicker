@@ -49,6 +49,18 @@ class GameViewModel(private val session: GameSession) : ViewModel() {
         return after !== before
     }
 
+    /** Development aid, see [GameSession.debugGrantFish]. */
+    fun debugGrantFish(amount: Double) {
+        session.debugGrantFish(amount)
+        mutableState.value = session.state
+    }
+
+    /** Development aid, see [GameSession.debugCompleteRoom]. */
+    fun debugCompleteRoom() {
+        session.debugCompleteRoom()
+        mutableState.value = session.state
+    }
+
     /** The screen became visible (Activity.onStart). */
     fun onForeground() {
         session.onForeground()

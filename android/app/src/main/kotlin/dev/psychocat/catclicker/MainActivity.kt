@@ -1,5 +1,6 @@
 package dev.psychocat.catclicker
 
+import android.content.pm.ApplicationInfo
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -19,6 +20,7 @@ import dev.psychocat.catclicker.assets.LocalAssets
 import dev.psychocat.catclicker.game.save.SaveRepository
 import dev.psychocat.catclicker.game.session.GameSession
 import dev.psychocat.catclicker.ui.GameScreen
+import dev.psychocat.catclicker.ui.settings.DebugTools
 import dev.psychocat.catclicker.ui.theme.CatClickerTheme
 import java.io.File
 
@@ -33,11 +35,15 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             val assets = remember { AssetRegistry(applicationContext) }
+            val debugTools = remember {
+                val debuggable = (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
+                if (debuggable) DebugTools(grantFish = { viewModel.debugGrantFish(1_000_000.0) }, completeRoom = viewModel::debugCompleteRoom) else null
+            }
             CatClickerTheme {
                 CompositionLocalProvider(LocalAssets provides assets) {
                     Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                         val state by viewModel.state.collectAsStateWithLifecycle()
-                        GameScreen(state = state, dispatch = viewModel::dispatch)
+                        GameScreen(state = state, dispatch = viewModel::dispatch, debug = debugTools)
                     }
                 }
             }

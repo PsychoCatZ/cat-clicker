@@ -1,5 +1,7 @@
 package dev.psychocat.catclicker.game.session
 
+import dev.psychocat.catclicker.game.data.Cats
+import dev.psychocat.catclicker.game.data.Upgrades
 import dev.psychocat.catclicker.game.engine.GameEngine
 import dev.psychocat.catclicker.game.model.GameAction
 import dev.psychocat.catclicker.game.model.GameState
@@ -131,6 +133,29 @@ class GameSession(private val repository: SaveRepository, private val clock: Clo
     }
 
     val isDirty: Boolean get() = dirty
+
+    /** Development aid (offered only in debuggable builds): adds [amount] fish to the current room. */
+    fun debugGrantFish(amount: Double) {
+        state = withFish(state, min(GameEngine.MAX_FISH, state.progress.fish + amount))
+        dirty = true
+    }
+
+    /** Development aid: buys every cat and upgrade of the current room through the normal purchase rules. */
+    fun debugCompleteRoom() {
+        var next = state
+        for (cat in Cats.forRoom(next.currentRoom)) {
+            next = GameEngine.reduce(withFish(next, GameEngine.MAX_FISH), GameAction.BuyCat(cat.id))
+        }
+        for (upgrade in Upgrades.forRoom(next.currentRoom)) {
+            next = GameEngine.reduce(withFish(next, GameEngine.MAX_FISH), GameAction.BuyUpgrade(upgrade.id))
+        }
+        state = withFish(next, state.progress.fish)
+        dirty = true
+    }
+
+    private fun withFish(source: GameState, fish: Double): GameState = source.copy(
+        rooms = source.rooms.mapIndexed { index, room -> if (index == source.currentRoom - 1) room.copy(fish = fish) else room },
+    )
 
     companion object {
         const val PERIODIC_SAVE_MILLIS = 30_000L

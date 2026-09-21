@@ -50,4 +50,11 @@ object Numbers {
         val rest = minutes % 60
         return if (rest > 0) "$hours ч $rest мин" else "$hours ч"
     }
+
+    /** "1 предмет ждёт места", "3 предмета ждут места", "5 предметов ждут места". */
+    fun itemsWaiting(count: Int): String = when {
+        count == 1 -> "1 предмет ждёт места"
+        count in 2..4 -> "$count предмета ждут места"
+        else -> "$count предметов ждут места"
+    }
 }

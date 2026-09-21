@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -21,13 +20,18 @@ import androidx.compose.ui.unit.dp
 import dev.psychocat.catclicker.ui.components.BigButton
 import dev.psychocat.catclicker.ui.components.ButtonStyle
 import dev.psychocat.catclicker.ui.components.ItemCard
+import dev.psychocat.catclicker.ui.components.WipeConfirmDialogs
+import dev.psychocat.catclicker.ui.components.WipeTexts
 
 /**
  * Settings live on their own screen, away from the game. Resetting progress needs two separate confirmations,
  * and in both dialogs the safe answer is the prominent one.
  */
+/** Testing shortcuts, handed to the settings screen only in debuggable builds (never in a release build). */
+class DebugTools(val grantFish: () -> Unit, val completeRoom: () -> Unit)
+
 @Composable
-fun SettingsScreen(onBack: () -> Unit, onResetConfirmed: () -> Unit, modifier: Modifier = Modifier) {
+fun SettingsScreen(onBack: () -> Unit, onResetConfirmed: () -> Unit, modifier: Modifier = Modifier, debug: DebugTools? = null) {
     // 0 = no dialog, 1 = first question, 2 = second question. Survives rotation.
     var resetStep by rememberSaveable { mutableIntStateOf(0) }
 
@@ -57,27 +61,31 @@ fun SettingsScreen(onBack: () -> Unit, onResetConfirmed: () -> Unit, modifier: M
             )
             BigButton("Сбросить весь прогресс…", { resetStep = 1 }, modifier = Modifier.fillMaxWidth(), style = ButtonStyle.Outlined)
         }
+
+        if (debug != null) {
+            ItemCard(Modifier.fillMaxWidth()) {
+                Text("Для проверки", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "Этот раздел виден только в отладочной сборке, из Android Studio. В обычной версии его нет.",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                BigButton("Добавить 1 000 000 рыбок", debug.grantFish, modifier = Modifier.fillMaxWidth(), style = ButtonStyle.Tonal)
+                BigButton("Купить всё в этой комнате", debug.completeRoom, modifier = Modifier.fillMaxWidth(), style = ButtonStyle.Tonal)
+            }
+        }
     }
 
-    when (resetStep) {
-        1 -> AlertDialog(
-            onDismissRequest = { resetStep = 0 },
-            title = { Text("Сбросить весь прогресс?") },
-            text = { Text("Все комнаты, коты, рыбки, ресурсы и улучшения будут удалены. Игра начнётся с самого начала.") },
-            confirmButton = { BigButton("Нет, не сбрасывать", { resetStep = 0 }) },
-            dismissButton = { BigButton("Продолжить…", { resetStep = 2 }, style = ButtonStyle.Outlined) },
-        )
-
-        2 -> AlertDialog(
-            onDismissRequest = { resetStep = 0 },
-            title = { Text("Вы точно уверены?") },
-            text = { Text("Это последний вопрос. После нажатия «Да, удалить всё» прогресс пропадёт навсегда.") },
-            confirmButton = { BigButton("Нет, оставить всё", { resetStep = 0 }) },
-            dismissButton = {
-                BigButton("Да, удалить всё", { resetStep = 0; onResetConfirmed() }, style = ButtonStyle.Danger)
-            },
-        )
-    }
+    WipeConfirmDialogs(
+        step = resetStep,
+        onStep = { resetStep = it },
+        texts = WipeTexts(
+            firstTitle = "Сбросить весь прогресс?",
+            firstText = "Все комнаты, коты, рыбки, ресурсы и улучшения будут удалены. Игра начнётся с самого начала.",
+            secondTitle = "Вы точно уверены?",
+            secondText = "Это последний вопрос. После нажатия «Да, удалить всё» прогресс пропадёт навсегда.",
+        ),
+        onConfirmed = onResetConfirmed,
+    )
 }
 
 @Composable

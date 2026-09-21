@@ -40,4 +40,12 @@ class NumbersTest {
         assertEquals("1 ч", Numbers.formatAway(3600.0))
         assertEquals("2 ч 5 мин", Numbers.formatAway(7500.0))
     }
+
+    @Test
+    fun waitingItems() {
+        assertEquals("1 предмет ждёт места", Numbers.itemsWaiting(1))
+        assertEquals("2 предмета ждут места", Numbers.itemsWaiting(2))
+        assertEquals("4 предмета ждут места", Numbers.itemsWaiting(4))
+        assertEquals("5 предметов ждут места", Numbers.itemsWaiting(5))
+    }
 }
