@@ -45,6 +45,7 @@ import dev.psychocat.catclicker.ui.theme.FishCard
 fun LazyListScope.miniGamesShop(
     room: Room,
     selectedCatId: String,
+    onStartMatch3: () -> Unit,
     onStartPairs: (Int) -> Unit,
     onStartSliding: (SlidingDifficulty, String) -> Unit,
 ) {
@@ -55,6 +56,9 @@ fun LazyListScope.miniGamesShop(
             "Без таймера и без влияния на открытие комнат. Очки после игры превращаются в рыбки этой комнаты.",
         )
     }
+    item(key = "minigames-match3") {
+        Match3HubCard(room, onStartMatch3)
+    }
     item(key = "minigames-pairs") {
         PairsHubCard(room, onStartPairs)
     }
@@ -63,10 +67,44 @@ fun LazyListScope.miniGamesShop(
     }
     item(key = "minigames-soon") {
         Text(
-            "Скоро здесь появятся «Три в ряд» и «Кошачий маджонг».",
+            "Скоро здесь появится «Кошачий маджонг».",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+    }
+}
+
+@Composable
+private fun Match3HubCard(room: Room, onStart: () -> Unit) {
+    val roomCats = Cats.forRoom(room.id)
+    ItemCard(Modifier.fillMaxWidth()) {
+        Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.fillMaxWidth()) {
+            roomCats.forEach { cat ->
+                Surface(
+                    modifier = Modifier.weight(1f).heightIn(min = 60.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    color = FishCard,
+                    border = BorderStroke(1.dp, FishBorder),
+                ) {
+                    Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(2.dp)) {
+                        Image(gameImage(cat.image), contentDescription = null, modifier = Modifier.size(54.dp))
+                    }
+                }
+            }
+        }
+        Text("20 ХОДОВ", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+        Text("Котики в ряд", style = MaterialTheme.typography.titleLarge)
+        Text(
+            "Меняйте соседних котиков местами и собирайте линии из трёх и больше.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            "• Без ограничения времени.\n• Ошибочная перестановка не расходует ход.\n• Все очки превратятся в рыбки этой комнаты.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        BigButton("Играть в «три в ряд»", onStart, modifier = Modifier.fillMaxWidth())
     }
 }
 

@@ -223,7 +223,7 @@ private fun PairCardView(card: PairCard, cat: Cat?, number: Int, visible: Boolea
             Surface(
                 modifier = Modifier.fillMaxSize().graphicsLayer { rotationY = 180f },
                 shape = RoundedCornerShape(14.dp),
-                color = Color(0xFFFFF4E0),
+                color = if (cat != null) catTint(cat) else Color(0xFFFFF4E0),
                 border = BorderStroke(if (card.matched) 4.dp else 3.dp, if (card.matched) Success else Color(0xFFE8A95C)),
             ) {
                 if (cat != null) {

@@ -9,6 +9,11 @@ import dev.psychocat.catclicker.game.data.Upgrades
 import dev.psychocat.catclicker.game.engine.GameEngine
 import dev.psychocat.catclicker.game.minigames.MiniGameRound
 import dev.psychocat.catclicker.game.minigames.RoundStatus
+import dev.psychocat.catclicker.game.minigames.match3.MATCH3_MOVES
+import dev.psychocat.catclicker.game.minigames.match3.MATCH3_SIZE
+import dev.psychocat.catclicker.game.minigames.match3.Match3Board
+import dev.psychocat.catclicker.game.minigames.match3.Match3Round
+import dev.psychocat.catclicker.game.minigames.match3.Match3Tile
 import dev.psychocat.catclicker.game.minigames.pairs.PairCard
 import dev.psychocat.catclicker.game.minigames.pairs.PairsGame
 import dev.psychocat.catclicker.game.minigames.pairs.PairsRound
@@ -109,6 +114,14 @@ object SaveCodec {
                 revealed = revealed, attempts = attempts, rngState = rngState, lastMatch = lastMatch,
             ),
         )
+        is Match3Round -> ActiveGameDto(
+            match3 = Match3RoundDto(
+                id = id, roomId = roomId, mode = if (mode == GameMode.EXPERT) "expert" else "normal",
+                board = board.map { Match3TileDto(it.id, it.catId) }, movesLeft = movesLeft, score = score,
+                maxCombo = maxCombo, rngState = rngState, nextTileId = nextTileId, lastGain = lastGain,
+                lastCombo = lastCombo, shuffled = shuffled,
+            ),
+        )
         else -> ActiveGameDto() // a game the save format does not know yet: not stored
     }
 
@@ -116,7 +129,40 @@ object SaveCodec {
     private fun cleanActiveGame(dto: ActiveGameDto?, mode: GameMode, currentRoom: Int, unlockedRoom: Int): MiniGameRound? {
         dto?.sliding?.let { return cleanSliding(it, mode, currentRoom, unlockedRoom) }
         dto?.pairs?.let { return cleanPairs(it, mode, currentRoom, unlockedRoom) }
+        dto?.match3?.let { return cleanMatch3(it, mode, currentRoom, unlockedRoom) }
         return null
+    }
+
+    private fun cleanMatch3(dto: Match3RoundDto, mode: GameMode, currentRoom: Int, unlockedRoom: Int): Match3Round? {
+        val modeKey = if (mode == GameMode.EXPERT) "expert" else "normal"
+        if (dto.roomId != currentRoom || dto.roomId < 1 || dto.roomId > unlockedRoom || dto.mode != modeKey) return null
+        if (dto.board.size != MATCH3_SIZE * MATCH3_SIZE) return null
+        val roomCats = Cats.forRoom(dto.roomId).map { it.id }.toSet()
+        val ids = HashSet<Int>()
+        val board = ArrayList<Match3Tile>()
+        for (tile in dto.board) {
+            if (tile.id < 0 || !ids.add(tile.id) || tile.catId !in roomCats) return null
+            board.add(Match3Tile(tile.id, tile.catId))
+        }
+        // A saved board is always a settled one: no ready lines and at least one possible move.
+        if (Match3Board.findRuns(board).isNotEmpty() || Match3Board.findPossibleSwap(board) == null) return null
+        val movesLeft = dto.movesLeft.coerceIn(0, MATCH3_MOVES)
+        val maxId = board.maxOf { it.id }
+        return Match3Round(
+            id = dto.id.take(100).ifEmpty { "${dto.roomId}-$modeKey-saved" },
+            roomId = dto.roomId,
+            mode = mode,
+            board = board,
+            movesLeft = movesLeft,
+            score = dto.score.coerceIn(0, 1_000_000_000),
+            maxCombo = dto.maxCombo.coerceIn(0, 50),
+            rngState = Xorshift32.normalize(dto.rngState),
+            nextTileId = maxOf(maxId + 1, dto.nextTileId),
+            status = if (movesLeft == 0) RoundStatus.FINISHED else RoundStatus.PLAYING,
+            lastGain = dto.lastGain.coerceIn(0, 1_000_000_000),
+            lastCombo = dto.lastCombo.coerceIn(0, 50),
+            shuffled = dto.shuffled,
+        )
     }
 
     private fun cleanPairs(dto: PairsRoundDto, mode: GameMode, currentRoom: Int, unlockedRoom: Int): PairsRound? {

@@ -13,7 +13,7 @@ import { build } from 'esbuild'
 
 const bundled = await build({
   stdin: {
-    contents: "export * from './src/game/economy.ts'; export * from './src/game/cats.ts'; export * from './src/game/upgrades.ts'; export * from './src/game/items.ts'; export * from './src/game/rooms.ts'; export * from './src/game/sliding/board.ts'; export * from './src/game/sliding/layouts.ts'; export * from './src/game/pairs/types.ts'; export * from './src/game/pairs/reducer.ts';",
+    contents: "export * from './src/game/economy.ts'; export * from './src/game/cats.ts'; export * from './src/game/upgrades.ts'; export * from './src/game/items.ts'; export * from './src/game/rooms.ts'; export * from './src/game/sliding/board.ts'; export * from './src/game/sliding/layouts.ts'; export * from './src/game/pairs/types.ts'; export * from './src/game/pairs/reducer.ts'; export * from './src/game/match3/board.ts';",
     resolveDir: process.cwd(),
     sourcefile: 'engine-golden.ts',
   },
@@ -29,6 +29,7 @@ const snapshot = (state) => ({
   offlineReport: state.offlineReport,
   sliding: state.sliding.activeRound,
   pairs: state.pairs.activeRound,
+  match3: state.match3.activeRound,
   rooms: state.rooms.map((room) => ({
     fish: room.fish,
     hunger: room.hunger,
@@ -304,6 +305,49 @@ function pairsBot(seed, count) {
   return steps
 }
 
+// --- Cats in a row (match-3): scripted rounds with valid, invalid and non-adjacent swaps, plus a random bot ---
+function match3Play(seed, count, exitEarly) {
+  let rng = seed >>> 0 || 1
+  const next = () => {
+    rng ^= rng << 13; rng >>>= 0
+    rng ^= rng >>> 17
+    rng ^= rng << 5; rng >>>= 0
+    return rng / 0x100000000
+  }
+  const pick = (list) => list[Math.floor(next() * list.length)]
+  let state = game.initialState()
+  const steps = []
+  const push = (step) => { state = apply(state, step); steps.push(step) }
+  push({ a: { type: 'startMatch3', seed: seed * 7 + 1 } })
+  push({ a: { type: 'startMatch3', seed: 5 } }) // ignored: a round is active
+  for (let i = 0; i < count; i += 1) {
+    const round = state.match3.activeRound
+    if (!round) {
+      if (next() < 0.5) push({ a: { type: 'startMatch3', seed: Math.floor(next() * 0xffffffff) } })
+      else push({ a: { type: 'tick', seconds: 1 } })
+      continue
+    }
+    const roll = next()
+    if (roll < 0.55) {
+      const move = game.findPossibleSwap(round.board)
+      push({ a: { type: 'match3Swap', first: move[0], second: move[1] } })
+    } else if (roll < 0.75) {
+      const first = Math.floor(next() * 49)
+      const second = pick([first + 1, first - 1, first + 7, first - 7])
+      push({ a: { type: 'match3Swap', first, second } }) // may or may not make a line
+    } else if (roll < 0.82) {
+      push({ a: { type: 'match3Swap', first: Math.floor(next() * 49), second: Math.floor(next() * 60) - 5 } })
+    } else if (roll < 0.86 && exitEarly) {
+      push({ a: { type: 'settleMatch3' } })
+    } else {
+      const move = game.findPossibleSwap(round.board)
+      push({ a: { type: 'match3Swap', first: move[0], second: move[1] } })
+    }
+  }
+  if (state.match3.activeRound) push({ a: { type: 'settleMatch3' } })
+  return steps
+}
+
 const scenarios = [
   record('scripted', scripted, 1),
   record('fallback-income', sleeping, 25),
@@ -313,6 +357,7 @@ const scenarios = [
   ...[5, 77, 31337].map((seed) => record(`sliding-bot-${seed}`, slidingBot(seed, 1500), 12)),
   record('pairs-solve', pairsSolve(), 4),
   ...[8, 606, 12345].map((seed) => record(`pairs-bot-${seed}`, pairsBot(seed, 1500), 12)),
+  ...[3, 99, 2026, 77777].map((seed) => record(`match3-${seed}`, match3Play(seed, 60, seed % 2 === 1), 3)),
 ]
 
 const outDir = 'android/game/src/test/resources/golden'

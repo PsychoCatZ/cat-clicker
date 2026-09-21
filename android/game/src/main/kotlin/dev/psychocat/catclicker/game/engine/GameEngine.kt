@@ -9,6 +9,8 @@ import dev.psychocat.catclicker.game.data.Items
 import dev.psychocat.catclicker.game.data.Rooms
 import dev.psychocat.catclicker.game.data.UpgradeTier
 import dev.psychocat.catclicker.game.minigames.MiniGames
+import dev.psychocat.catclicker.game.minigames.match3.Match3Game
+import dev.psychocat.catclicker.game.minigames.match3.Match3Round
 import dev.psychocat.catclicker.game.minigames.pairs.PairsGame
 import dev.psychocat.catclicker.game.minigames.pairs.PairsRound
 import dev.psychocat.catclicker.game.minigames.sliding.SlidingGame
@@ -104,6 +106,24 @@ object GameEngine {
                 val round = state.activeGame as? PairsRound ?: return state
                 val next = PairsGame.hideMismatch(round)
                 if (next === round) state else state.copy(activeGame = next)
+            }
+
+            is GameAction.StartMatch3 ->
+                if (state.activeGame != null) {
+                    state
+                } else {
+                    state.copy(
+                        activeGame = Match3Game.create(
+                            state.currentRoom, state.mode, Cats.forRoom(state.currentRoom).map { it.id }, action.seed,
+                        ),
+                    )
+                }
+
+            is GameAction.Match3Swap -> {
+                val round = state.activeGame as? Match3Round ?: return state
+                if (round.roomId != state.currentRoom) return state
+                val turn = Match3Game.play(round, action.first, action.second, Cats.forRoom(round.roomId).map { it.id })
+                if (turn.accepted) state.copy(activeGame = turn.round) else state
             }
 
             GameAction.SettleMiniGame -> settle(state)

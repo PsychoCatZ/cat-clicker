@@ -20,6 +20,10 @@ sealed interface GameAction {
     data class PairsReveal(val cardId: Int) : GameAction
     data object PairsHideMismatch : GameAction
 
+    /** Starts a "Cats in a row" (match-3) round; ignored while another round is active. */
+    data class StartMatch3(val seed: Long) : GameAction
+    data class Match3Swap(val first: Int, val second: Int) : GameAction
+
     /** Ends the active mini-game and pays its reward to the room where it was started. */
     data object SettleMiniGame : GameAction
     data class BuyResource(val id: String) : GameAction

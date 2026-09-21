@@ -24,6 +24,8 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.psychocat.catclicker.assets.gameImage
+import dev.psychocat.catclicker.game.data.Cat
+import dev.psychocat.catclicker.game.data.Cats
 import dev.psychocat.catclicker.game.data.Room
 import dev.psychocat.catclicker.ui.components.BigButton
 import dev.psychocat.catclicker.ui.components.ButtonStyle
@@ -44,7 +46,7 @@ fun MiniGameFrame(room: Room, content: @Composable (landscape: Boolean, width: D
             modifier = Modifier.fillMaxSize(),
         )
         Box(modifier = Modifier.fillMaxSize().background(Color(0x55000000)))
-        BoxWithConstraints(modifier = Modifier.fillMaxSize().safeDrawingPadding().padding(10.dp)) {
+        BoxWithConstraints(modifier = Modifier.fillMaxSize().safeDrawingPadding().padding(6.dp)) {
             Surface(
                 modifier = Modifier.fillMaxSize(),
                 shape = RoundedCornerShape(24.dp),
@@ -96,4 +98,21 @@ fun MiniStat(label: String, value: String, modifier: Modifier = Modifier, icon: 
             }
         }
     }
+}
+
+/**
+ * A soft background colour per cat of the room, in the order of the room list. Several rooms have cats that look
+ * alike (room 5: all black, told apart by their caps), so colour gives a second, much easier way to tell them apart.
+ */
+private val CatTints = listOf(
+    Color(0xFFFFD9D9), // pink
+    Color(0xFFD5E6FF), // blue
+    Color(0xFFD8F1CC), // green
+    Color(0xFFFFEDB0), // yellow
+    Color(0xFFE5D8FF), // lavender
+)
+
+fun catTint(cat: Cat): Color {
+    val index = Cats.forRoom(cat.roomId).indexOfFirst { it.id == cat.id }.coerceAtLeast(0)
+    return CatTints[index % CatTints.size]
 }

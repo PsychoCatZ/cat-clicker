@@ -3,6 +3,7 @@ package dev.psychocat.catclicker.game.engine
 import dev.psychocat.catclicker.game.data.FurniturePoint
 import dev.psychocat.catclicker.game.data.SceneLayout
 import dev.psychocat.catclicker.game.minigames.RoundStatus
+import dev.psychocat.catclicker.game.minigames.match3.Match3Round
 import dev.psychocat.catclicker.game.minigames.pairs.PairsRound
 import dev.psychocat.catclicker.game.minigames.sliding.SlidingDifficulty
 import dev.psychocat.catclicker.game.minigames.sliding.SlidingRound
@@ -65,6 +66,9 @@ class EngineParityTest {
                 difficulty = SlidingDifficulty.fromKey(string("difficulty"))!!,
                 catId = json["catId"]?.jsonPrimitive?.contentOrNull,
             )
+            "startMatch3" -> GameAction.StartMatch3(json.getValue("seed").jsonPrimitive.double.toLong())
+            "match3Swap" -> GameAction.Match3Swap(json.getValue("first").jsonPrimitive.int, json.getValue("second").jsonPrimitive.int)
+            "settleMatch3" -> GameAction.SettleMiniGame
             "startPairs" -> GameAction.StartPairs(
                 seed = json.getValue("seed").jsonPrimitive.double.toLong(),
                 cardCount = json.getValue("cardCount").jsonPrimitive.int,
@@ -107,11 +111,32 @@ class EngineParityTest {
     private fun assertActiveGame(expected: JsonObject, state: GameState, label: String) {
         val sliding = expected["sliding"]?.takeIf { it !is JsonNull }
         val pairs = expected["pairs"]?.takeIf { it !is JsonNull }
+        val match3 = expected["match3"]?.takeIf { it !is JsonNull }
         when {
             sliding != null -> assertSliding(sliding, state, label)
             pairs != null -> assertPairs(pairs.jsonObject, state, label)
+            match3 != null -> assertMatch3(match3.jsonObject, state, label)
             else -> assertEquals(null, state.activeGame, "$label active game")
         }
+    }
+
+    private fun assertMatch3(web: JsonObject, state: GameState, label: String) {
+        val actual = state.activeGame as? Match3Round ?: error("$label: expected a match-3 round but was ${state.activeGame}")
+        assertEquals(web.getValue("id").jsonPrimitive.content, actual.id, "$label match3 id")
+        assertEquals(web.getValue("roomId").jsonPrimitive.int, actual.roomId, "$label match3 room")
+        assertEquals(
+            web.getValue("board").jsonArray.map { it.jsonObject.getValue("id").jsonPrimitive.int to it.jsonObject.getValue("catId").jsonPrimitive.content },
+            actual.board.map { it.id to it.catId }, "$label match3 board",
+        )
+        assertEquals(web.getValue("movesLeft").jsonPrimitive.int, actual.movesLeft, "$label match3 movesLeft")
+        assertEquals(web.getValue("score").jsonPrimitive.int, actual.score, "$label match3 score")
+        assertEquals(web.getValue("maxCombo").jsonPrimitive.int, actual.maxCombo, "$label match3 maxCombo")
+        assertEquals(web.getValue("rngState").jsonPrimitive.long, actual.rngState, "$label match3 rng")
+        assertEquals(web.getValue("nextTileId").jsonPrimitive.int, actual.nextTileId, "$label match3 nextTileId")
+        assertEquals(web.getValue("status").jsonPrimitive.content, if (actual.status == RoundStatus.FINISHED) "finished" else "playing", "$label match3 status")
+        assertEquals(web.getValue("lastGain").jsonPrimitive.int, actual.lastGain, "$label match3 lastGain")
+        assertEquals(web.getValue("lastCombo").jsonPrimitive.int, actual.lastCombo, "$label match3 lastCombo")
+        assertEquals(web.getValue("shuffled").jsonPrimitive.boolean, actual.shuffled, "$label match3 shuffled")
     }
 
     private fun assertPairs(web: JsonObject, state: GameState, label: String) {
@@ -208,7 +233,7 @@ class EngineParityTest {
 
     @Test
     fun kotlinEngineReplaysEveryRecordedWebSession() {
-        assertTrue(scenarios.size >= 13, "golden file looks incomplete")
+        assertTrue(scenarios.size >= 17, "golden file looks incomplete")
         for (scenario in scenarios) {
             val name = scenario.jsonObject.getValue("name").jsonPrimitive.content
             var state = GameState.initial()

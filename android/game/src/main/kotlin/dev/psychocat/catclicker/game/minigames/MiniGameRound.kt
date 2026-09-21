@@ -1,5 +1,7 @@
 package dev.psychocat.catclicker.game.minigames
 
+import dev.psychocat.catclicker.game.minigames.match3.Match3Game
+import dev.psychocat.catclicker.game.minigames.match3.Match3Round
 import dev.psychocat.catclicker.game.minigames.pairs.PairsGame
 import dev.psychocat.catclicker.game.minigames.pairs.PairsRound
 import dev.psychocat.catclicker.game.minigames.sliding.SlidingGame
@@ -26,6 +28,7 @@ object MiniGames {
     fun fishReward(round: MiniGameRound): Double = when (round) {
         is SlidingRound -> SlidingGame.fishReward(round.score, round.roomId, round.mode)
         is PairsRound -> PairsGame.fishReward(round)
+        is Match3Round -> Match3Game.fishReward(round.score, round.roomId, round.mode)
         else -> 0.0
     }
 }
