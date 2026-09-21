@@ -5,11 +5,16 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -20,6 +25,7 @@ import dev.psychocat.catclicker.assets.LocalAssets
 import dev.psychocat.catclicker.game.save.SaveRepository
 import dev.psychocat.catclicker.game.session.GameSession
 import dev.psychocat.catclicker.ui.GameScreen
+import dev.psychocat.catclicker.ui.SplashScreen
 import dev.psychocat.catclicker.ui.settings.DebugTools
 import dev.psychocat.catclicker.ui.theme.CatClickerTheme
 import java.io.File
@@ -42,8 +48,17 @@ class MainActivity : ComponentActivity() {
             CatClickerTheme {
                 CompositionLocalProvider(LocalAssets provides assets) {
                     Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                        // The title picture is shown once per start of the app: rotating the phone or coming back
+                        // to a running game does not show it again (the flag survives both).
+                        var showSplash by rememberSaveable { mutableStateOf(true) }
                         val state by viewModel.state.collectAsStateWithLifecycle()
-                        GameScreen(state = state, dispatch = viewModel::dispatch, debug = debugTools)
+                        Crossfade(targetState = showSplash, animationSpec = tween(500), label = "splash") { splash ->
+                            if (splash) {
+                                SplashScreen(onFinished = { showSplash = false })
+                            } else {
+                                GameScreen(state = state, dispatch = viewModel::dispatch, debug = debugTools)
+                            }
+                        }
                     }
                 }
             }
