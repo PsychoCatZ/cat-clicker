@@ -1,5 +1,7 @@
 package dev.psychocat.catclicker.game.minigames
 
+import dev.psychocat.catclicker.game.minigames.pairs.PairsGame
+import dev.psychocat.catclicker.game.minigames.pairs.PairsRound
 import dev.psychocat.catclicker.game.minigames.sliding.SlidingGame
 import dev.psychocat.catclicker.game.minigames.sliding.SlidingRound
 import dev.psychocat.catclicker.game.model.GameMode
@@ -23,6 +25,7 @@ object MiniGames {
     /** Fish that settling [round] right now would pay out (score is only earned by completed steps). */
     fun fishReward(round: MiniGameRound): Double = when (round) {
         is SlidingRound -> SlidingGame.fishReward(round.score, round.roomId, round.mode)
+        is PairsRound -> PairsGame.fishReward(round)
         else -> 0.0
     }
 }

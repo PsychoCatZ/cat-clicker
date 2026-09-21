@@ -13,7 +13,7 @@ import { build } from 'esbuild'
 
 const bundled = await build({
   stdin: {
-    contents: "export * from './src/game/economy.ts'; export * from './src/game/cats.ts'; export * from './src/game/upgrades.ts'; export * from './src/game/items.ts'; export * from './src/game/rooms.ts'; export * from './src/game/sliding/board.ts'; export * from './src/game/sliding/layouts.ts';",
+    contents: "export * from './src/game/economy.ts'; export * from './src/game/cats.ts'; export * from './src/game/upgrades.ts'; export * from './src/game/items.ts'; export * from './src/game/rooms.ts'; export * from './src/game/sliding/board.ts'; export * from './src/game/sliding/layouts.ts'; export * from './src/game/pairs/types.ts'; export * from './src/game/pairs/reducer.ts';",
     resolveDir: process.cwd(),
     sourcefile: 'engine-golden.ts',
   },
@@ -28,6 +28,7 @@ const snapshot = (state) => ({
   finalDismissed: state.finalDismissed,
   offlineReport: state.offlineReport,
   sliding: state.sliding.activeRound,
+  pairs: state.pairs.activeRound,
   rooms: state.rooms.map((room) => ({
     fish: room.fish,
     hunger: room.hunger,
@@ -230,6 +231,79 @@ function slidingBot(seed, count) {
   return steps
 }
 
+// --- Find the pair: play whole rounds of every size, with mismatches, locks and early exits ---
+function pairsSolve() {
+  const steps = [{ a: { type: 'reset' } }]
+  const catIds = game.catsForRoom(1).map((cat) => cat.id)
+  let seed = 900
+  for (const cardCount of game.PAIRS_CARD_COUNTS) {
+    seed += 13
+    const round = game.createPairsRound(1, 'normal', catIds, seed, cardCount)
+    steps.push({ a: { type: 'startPairs', seed, cardCount } })
+    steps.push({ a: { type: 'startPairs', seed: seed + 1, cardCount } }) // ignored: a round is active
+    const first = round.cards[0]
+    const wrong = round.cards.find((card) => card.catId !== first.catId)
+    steps.push({ a: { type: 'pairsReveal', cardId: first.id } })
+    steps.push({ a: { type: 'pairsReveal', cardId: first.id } }) // same card twice: ignored
+    steps.push({ a: { type: 'pairsReveal', cardId: wrong.id } }) // mismatch
+    steps.push({ a: { type: 'pairsReveal', cardId: round.cards[2].id } }) // board is locked
+    steps.push({ a: { type: 'pairsHideMismatch' } })
+    steps.push({ a: { type: 'pairsHideMismatch' } }) // nothing to hide
+    const byCat = new Map()
+    for (const card of round.cards) byCat.set(card.catId, [...(byCat.get(card.catId) ?? []), card])
+    for (const cards of byCat.values()) {
+      for (let i = 0; i + 1 < cards.length; i += 2) {
+        steps.push({ a: { type: 'pairsReveal', cardId: cards[i].id } })
+        steps.push({ a: { type: 'pairsReveal', cardId: cards[i + 1].id } })
+      }
+    }
+    steps.push({ a: { type: 'pairsReveal', cardId: 0 } }) // finished: ignored
+    steps.push({ a: { type: 'settlePairs' } })
+    // Early exit after a single match.
+    steps.push({ a: { type: 'startPairs', seed: seed + 5, cardCount } })
+    const other = game.createPairsRound(1, 'normal', catIds, seed + 5, cardCount)
+    const pair = other.cards.filter((card) => card.catId === other.cards[0].catId)
+    steps.push({ a: { type: 'pairsReveal', cardId: pair[0].id } }, { a: { type: 'pairsReveal', cardId: pair[1].id } })
+    steps.push({ a: { type: 'settlePairs' } })
+  }
+  // (An unsupported size is ignored by the Kotlin engine; the web reducer relies on TypeScript types instead,
+  // so that case is covered by PairsGameTest and not recorded here.)
+  return steps
+}
+
+function pairsBot(seed, count) {
+  let rng = seed >>> 0 || 1
+  const next = () => {
+    rng ^= rng << 13; rng >>>= 0
+    rng ^= rng >>> 17
+    rng ^= rng << 5; rng >>>= 0
+    return rng / 0x100000000
+  }
+  const pick = (list) => list[Math.floor(next() * list.length)]
+  let state = game.initialState()
+  const steps = []
+  for (let i = 0; i < count; i += 1) {
+    const roll = next()
+    const round = state.pairs.activeRound
+    let step
+    if (roll < 0.04) step = { a: { type: 'startPairs', seed: Math.floor(next() * 0xffffffff), cardCount: pick([10, 16, 20]) } }
+    else if (roll < 0.08) step = { a: { type: 'pairsReveal', cardId: Math.floor(next() * 22) } }
+    else if (roll < 0.10) step = { a: { type: 'settlePairs' } }
+    else if (roll < 0.12) step = { a: { type: 'pairsHideMismatch' } }
+    else if (round && round.status === 'playing') {
+      if (round.revealed.length === 2 && round.lastMatch === false) step = { a: { type: 'pairsHideMismatch' } }
+      else if (round.revealed.length === 1 && next() < 0.5) {
+        const first = round.cards.find((card) => card.id === round.revealed[0])
+        const match = round.cards.find((card) => !card.matched && card.id !== first.id && card.catId === first.catId)
+        step = { a: { type: 'pairsReveal', cardId: match.id } }
+      } else step = { a: { type: 'pairsReveal', cardId: pick(round.cards.filter((card) => !card.matched)).id } }
+    } else step = { a: { type: 'tick', seconds: 1 } }
+    state = apply(state, step)
+    steps.push(step)
+  }
+  return steps
+}
+
 const scenarios = [
   record('scripted', scripted, 1),
   record('fallback-income', sleeping, 25),
@@ -237,6 +311,8 @@ const scenarios = [
   ...[11, 2027, 90210, 424242].map((seed) => record(`bot-${seed}`, bot(seed, 3000), 20)),
   record('sliding-solve', slidingSolve(), 6),
   ...[5, 77, 31337].map((seed) => record(`sliding-bot-${seed}`, slidingBot(seed, 1500), 12)),
+  record('pairs-solve', pairsSolve(), 4),
+  ...[8, 606, 12345].map((seed) => record(`pairs-bot-${seed}`, pairsBot(seed, 1500), 12)),
 ]
 
 const outDir = 'android/game/src/test/resources/golden'

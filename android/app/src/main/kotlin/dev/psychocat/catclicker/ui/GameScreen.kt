@@ -72,6 +72,8 @@ import dev.psychocat.catclicker.game.minigames.MiniGameRound
 import dev.psychocat.catclicker.game.minigames.MiniGames
 import dev.psychocat.catclicker.game.minigames.sliding.SlidingDifficulty
 import dev.psychocat.catclicker.game.minigames.sliding.SlidingRound
+import dev.psychocat.catclicker.game.minigames.pairs.PairsRound
+import dev.psychocat.catclicker.ui.minigames.PairsScreen
 import dev.psychocat.catclicker.ui.minigames.SlidingScreen
 import dev.psychocat.catclicker.ui.minigames.miniGamesShop
 import dev.psychocat.catclicker.ui.settings.DebugTools
@@ -165,6 +167,7 @@ fun GameScreen(state: GameState, dispatch: (GameAction) -> Boolean, modifier: Mo
         onStartSliding = { difficulty, catId ->
             dispatch(GameAction.StartSliding(System.currentTimeMillis(), difficulty, catId))
         },
+        onStartPairs = { cardCount -> dispatch(GameAction.StartPairs(System.currentTimeMillis(), cardCount)) },
     )
 
     Box(modifier = modifier.fillMaxSize()) {
@@ -190,6 +193,17 @@ fun GameScreen(state: GameState, dispatch: (GameAction) -> Boolean, modifier: Mo
                     leaveGame(game) {
                         dispatch(GameAction.StartSliding(System.currentTimeMillis(), game.difficulty, game.catId))
                     }
+                },
+                onExit = { leaveGame(game) },
+            )
+        } else if (game is PairsRound) {
+            PairsScreen(
+                room = Rooms.byId(game.roomId),
+                round = game,
+                onReveal = { dispatch(GameAction.PairsReveal(it)) },
+                onHideMismatch = { dispatch(GameAction.PairsHideMismatch) },
+                onPlayAgain = {
+                    leaveGame(game) { dispatch(GameAction.StartPairs(System.currentTimeMillis(), game.cardCount)) }
                 },
                 onExit = { leaveGame(game) },
             )
@@ -281,6 +295,7 @@ private class GameActions(
     val onRemoveFurniture: (String) -> Unit,
     val onShowFinal: () -> Unit,
     val onStartSliding: (SlidingDifficulty, String) -> Unit,
+    val onStartPairs: (Int) -> Unit,
 )
 
 @Composable
@@ -419,7 +434,7 @@ private fun LazyListScope.shopContent(tab: ShopTab, state: GameState, columns: I
         ShopTab.RESOURCES -> resourcesShop(state, columns, actions.onBuyResource)
         ShopTab.FOOD -> foodShop(state, columns, actions.onBuyFood)
         ShopTab.CATS -> catsShop(state, columns, actions.onBuyCat, actions.onSelectCat)
-        ShopTab.MINIGAMES -> miniGamesShop(Rooms.byId(state.currentRoom), state.progress.selectedCat, actions.onStartSliding)
+        ShopTab.MINIGAMES -> miniGamesShop(Rooms.byId(state.currentRoom), state.progress.selectedCat, actions.onStartPairs, actions.onStartSliding)
     }
 }
 

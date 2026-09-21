@@ -9,6 +9,8 @@ import dev.psychocat.catclicker.game.data.Items
 import dev.psychocat.catclicker.game.data.Rooms
 import dev.psychocat.catclicker.game.data.UpgradeTier
 import dev.psychocat.catclicker.game.minigames.MiniGames
+import dev.psychocat.catclicker.game.minigames.pairs.PairsGame
+import dev.psychocat.catclicker.game.minigames.pairs.PairsRound
 import dev.psychocat.catclicker.game.minigames.sliding.SlidingGame
 import dev.psychocat.catclicker.game.minigames.sliding.SlidingRound
 import dev.psychocat.catclicker.game.data.Upgrades
@@ -76,6 +78,31 @@ object GameEngine {
             GameAction.SlidingReshuffle -> {
                 val round = state.activeGame as? SlidingRound ?: return state
                 val next = SlidingGame.reshuffle(round)
+                if (next === round) state else state.copy(activeGame = next)
+            }
+
+            is GameAction.StartPairs ->
+                if (state.activeGame != null || action.cardCount !in PairsGame.CARD_COUNTS) {
+                    state
+                } else {
+                    state.copy(
+                        activeGame = PairsGame.create(
+                            state.currentRoom, state.mode, Cats.forRoom(state.currentRoom).map { it.id },
+                            action.seed, action.cardCount,
+                        ),
+                    )
+                }
+
+            is GameAction.PairsReveal -> {
+                val round = state.activeGame as? PairsRound ?: return state
+                if (round.roomId != state.currentRoom) return state
+                val next = PairsGame.reveal(round, action.cardId)
+                if (next === round) state else state.copy(activeGame = next)
+            }
+
+            GameAction.PairsHideMismatch -> {
+                val round = state.activeGame as? PairsRound ?: return state
+                val next = PairsGame.hideMismatch(round)
                 if (next === round) state else state.copy(activeGame = next)
             }
 

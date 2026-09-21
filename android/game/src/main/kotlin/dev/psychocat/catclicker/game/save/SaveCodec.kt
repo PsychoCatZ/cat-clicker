@@ -9,6 +9,9 @@ import dev.psychocat.catclicker.game.data.Upgrades
 import dev.psychocat.catclicker.game.engine.GameEngine
 import dev.psychocat.catclicker.game.minigames.MiniGameRound
 import dev.psychocat.catclicker.game.minigames.RoundStatus
+import dev.psychocat.catclicker.game.minigames.pairs.PairCard
+import dev.psychocat.catclicker.game.minigames.pairs.PairsGame
+import dev.psychocat.catclicker.game.minigames.pairs.PairsRound
 import dev.psychocat.catclicker.game.minigames.sliding.SlidingBoard
 import dev.psychocat.catclicker.game.minigames.sliding.SlidingDifficulty
 import dev.psychocat.catclicker.game.minigames.sliding.SlidingEvent
@@ -99,13 +102,54 @@ object SaveCodec {
                 lastEvent = lastEvent?.key,
             ),
         )
+        is PairsRound -> ActiveGameDto(
+            pairs = PairsRoundDto(
+                id = id, roomId = roomId, mode = if (mode == GameMode.EXPERT) "expert" else "normal",
+                cardCount = cardCount, cards = cards.map { PairCardDto(it.id, it.catId, it.matched) },
+                revealed = revealed, attempts = attempts, rngState = rngState, lastMatch = lastMatch,
+            ),
+        )
         else -> ActiveGameDto() // a game the save format does not know yet: not stored
     }
 
     /** Like the web version, a round is only restored in the room and mode where it was started. */
     private fun cleanActiveGame(dto: ActiveGameDto?, mode: GameMode, currentRoom: Int, unlockedRoom: Int): MiniGameRound? {
-        val sliding = dto?.sliding ?: return null
-        return cleanSliding(sliding, mode, currentRoom, unlockedRoom)
+        dto?.sliding?.let { return cleanSliding(it, mode, currentRoom, unlockedRoom) }
+        dto?.pairs?.let { return cleanPairs(it, mode, currentRoom, unlockedRoom) }
+        return null
+    }
+
+    private fun cleanPairs(dto: PairsRoundDto, mode: GameMode, currentRoom: Int, unlockedRoom: Int): PairsRound? {
+        val modeKey = if (mode == GameMode.EXPERT) "expert" else "normal"
+        if (dto.roomId != currentRoom || dto.roomId < 1 || dto.roomId > unlockedRoom || dto.mode != modeKey) return null
+        if (dto.cardCount !in PairsGame.CARD_COUNTS || dto.cards.size != dto.cardCount) return null
+        val roomCats = Cats.forRoom(dto.roomId).map { it.id }
+        val ids = HashSet<Int>()
+        for (card in dto.cards) {
+            if (card.id < 0 || !ids.add(card.id) || card.catId !in roomCats) return null
+        }
+        val perCat = roomCats.map { catId -> dto.cards.count { it.catId == catId } }.sorted()
+        if (perCat != PairsGame.expectedCatCounts(dto.cardCount)) return null
+        val matchedCards = dto.cards.filter { it.matched }
+        if (matchedCards.size % 2 != 0 || roomCats.any { catId -> matchedCards.count { it.catId == catId } % 2 != 0 }) return null
+        val matches = matchedCards.size / 2
+        val byId = dto.cards.associateBy { it.id }
+        val revealed = dto.revealed.filter { it in ids }.take(2)
+        if (revealed.toSet().size != revealed.size || revealed.any { byId.getValue(it).matched }) return null
+        if (revealed.size == 2 && byId.getValue(revealed[0]).catId == byId.getValue(revealed[1]).catId) return null
+        return PairsRound(
+            id = dto.id.take(100).ifEmpty { "${dto.roomId}-$modeKey-pairs-saved" },
+            roomId = dto.roomId,
+            mode = mode,
+            cardCount = dto.cardCount,
+            cards = dto.cards.map { PairCard(it.id, it.catId, it.matched) },
+            revealed = revealed,
+            attempts = dto.attempts.coerceIn(0, 100_000),
+            matches = matches,
+            status = if (matches == dto.cardCount / 2) RoundStatus.FINISHED else RoundStatus.PLAYING,
+            lastMatch = if (revealed.size == 2) false else if (dto.lastMatch == true) true else null,
+            rngState = Xorshift32.normalize(dto.rngState),
+        )
     }
 
     private fun cleanSliding(dto: SlidingRoundDto, mode: GameMode, currentRoom: Int, unlockedRoom: Int): SlidingRound? {

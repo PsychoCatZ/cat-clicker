@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -51,16 +52,19 @@ fun BigButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     style: ButtonStyle = ButtonStyle.Primary,
+    /** Tighter side padding for two buttons in one row, so that a whole word fits on one line. */
+    contentPadding: PaddingValues = ButtonDefaults.ContentPadding,
 ) {
     val shape = RoundedCornerShape(16.dp)
     val sized = modifier.heightIn(min = MinTouchHeight)
     when (style) {
-        ButtonStyle.Primary -> Button(onClick, sized, enabled, shape) { ButtonText(text) }
-        ButtonStyle.Tonal -> FilledTonalButton(onClick, sized, enabled, shape) { ButtonText(text) }
-        ButtonStyle.Outlined -> OutlinedButton(onClick, sized, enabled, shape) { ButtonText(text) }
+        ButtonStyle.Primary -> Button(onClick, sized, enabled, shape, contentPadding = contentPadding) { ButtonText(text) }
+        ButtonStyle.Tonal -> FilledTonalButton(onClick, sized, enabled, shape, contentPadding = contentPadding) { ButtonText(text) }
+        ButtonStyle.Outlined -> OutlinedButton(onClick, sized, enabled, shape, contentPadding = contentPadding) { ButtonText(text) }
         ButtonStyle.Danger -> Button(
             onClick, sized, enabled, shape,
             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+            contentPadding = contentPadding,
         ) { ButtonText(text) }
     }
 }

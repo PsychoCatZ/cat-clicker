@@ -15,6 +15,11 @@ sealed interface GameAction {
     data class SlidingMove(val tileId: Int) : GameAction
     data object SlidingReshuffle : GameAction
 
+    /** Starts a "Find the pair" round (10, 16 or 20 cards); ignored while another round is active. */
+    data class StartPairs(val seed: Long, val cardCount: Int) : GameAction
+    data class PairsReveal(val cardId: Int) : GameAction
+    data object PairsHideMismatch : GameAction
+
     /** Ends the active mini-game and pays its reward to the room where it was started. */
     data object SettleMiniGame : GameAction
     data class BuyResource(val id: String) : GameAction

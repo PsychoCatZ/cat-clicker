@@ -69,11 +69,11 @@ fun MiniGameTitle(room: Room, title: String, onExit: () -> Unit, exitLabel: Stri
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                "СОСРЕДОТОЧЕННЫЙ РЕЖИМ · ${room.name.uppercase()}",
+                room.name.uppercase(),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.primary,
             )
-            Text(title, style = MaterialTheme.typography.headlineMedium)
+            Text(title, style = MaterialTheme.typography.titleLarge)
         }
         BigButton(exitLabel, onExit, style = ButtonStyle.Tonal)
     }

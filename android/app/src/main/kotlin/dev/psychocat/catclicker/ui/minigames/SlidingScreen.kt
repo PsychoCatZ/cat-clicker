@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
@@ -95,16 +96,16 @@ fun SlidingScreen(
     MiniGameFrame(room) { landscape, width, height ->
         val controls: @Composable () -> Unit = {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                BigButton("Показать оригинал", { showOriginal = true }, modifier = Modifier.weight(1f), style = ButtonStyle.Tonal)
-                BigButton("Перемешать заново", onReshuffle, modifier = Modifier.weight(1f), enabled = playing, style = ButtonStyle.Tonal)
+                BigButton("Образец", { showOriginal = true }, modifier = Modifier.weight(1f), style = ButtonStyle.Tonal, contentPadding = PaddingValues(horizontal = 6.dp, vertical = 8.dp))
+                BigButton("Перемешать", onReshuffle, modifier = Modifier.weight(1f), enabled = playing, style = ButtonStyle.Tonal, contentPadding = PaddingValues(horizontal = 6.dp, vertical = 8.dp))
             }
         }
         val summary: @Composable () -> Unit = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    MiniStat("Сложность", "${round.difficulty.title} · ${round.size}×${round.size}", Modifier.weight(1f))
-                    MiniStat("Котик", cat?.name ?: "Котик", Modifier.weight(1f))
-                }
+                Text(
+                    "${round.difficulty.title} · ${round.size}×${round.size} · ${cat?.name ?: "Котик"}",
+                    style = MaterialTheme.typography.titleSmall,
+                )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     MiniStat("Ходы", Numbers.format(round.moves.toDouble()), Modifier.weight(1f))
                     MiniStat(
@@ -116,6 +117,7 @@ fun SlidingScreen(
         }
         val notes: @Composable () -> Unit = {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(message, style = MaterialTheme.typography.bodyMedium)
                 Text(
                     "Нажимайте на плитку рядом с пустой клеткой. Число ходов ничем не ограничено.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -137,7 +139,6 @@ fun SlidingScreen(
                 ) {
                     MiniGameTitle(room, "Кошачьи пятнашки", onExit)
                     summary()
-                    Text(message, style = MaterialTheme.typography.bodyMedium)
                     controls()
                     notes()
                 }
@@ -149,9 +150,8 @@ fun SlidingScreen(
             ) {
                 MiniGameTitle(room, "Кошачьи пятнашки", onExit)
                 summary()
-                Text(message, style = MaterialTheme.typography.bodyMedium)
-                controls()
                 SlidingBoardView(round, onMove, Modifier.fillMaxWidth())
+                controls()
                 notes()
             }
         }

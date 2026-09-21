@@ -23,12 +23,14 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import dev.psychocat.catclicker.assets.gameImage
 import dev.psychocat.catclicker.game.data.Cats
 import dev.psychocat.catclicker.game.data.Room
+import dev.psychocat.catclicker.game.minigames.pairs.PairsGame
 import dev.psychocat.catclicker.game.minigames.sliding.SlidingDifficulty
 import dev.psychocat.catclicker.ui.components.BigButton
 import dev.psychocat.catclicker.ui.components.CardArt
@@ -36,10 +38,16 @@ import dev.psychocat.catclicker.ui.components.ItemCard
 import dev.psychocat.catclicker.ui.components.SectionHeading
 import dev.psychocat.catclicker.ui.theme.CardBorder
 import dev.psychocat.catclicker.ui.theme.CreamCard
+import dev.psychocat.catclicker.ui.theme.FishBorder
 import dev.psychocat.catclicker.ui.theme.FishCard
 
 /** The "Мини-игры" section of the shop. Games appear here one by one as they are ported. */
-fun LazyListScope.miniGamesShop(room: Room, selectedCatId: String, onStartSliding: (SlidingDifficulty, String) -> Unit) {
+fun LazyListScope.miniGamesShop(
+    room: Room,
+    selectedCatId: String,
+    onStartPairs: (Int) -> Unit,
+    onStartSliding: (SlidingDifficulty, String) -> Unit,
+) {
     item(key = "minigames-heading") {
         SectionHeading(
             "Спокойные игры · ${room.name}",
@@ -47,15 +55,76 @@ fun LazyListScope.miniGamesShop(room: Room, selectedCatId: String, onStartSlidin
             "Без таймера и без влияния на открытие комнат. Очки после игры превращаются в рыбки этой комнаты.",
         )
     }
+    item(key = "minigames-pairs") {
+        PairsHubCard(room, onStartPairs)
+    }
     item(key = "minigames-sliding") {
         SlidingHubCard(room, selectedCatId, onStartSliding)
     }
     item(key = "minigames-soon") {
         Text(
-            "Скоро здесь появятся «Три в ряд», «Найди пару» и «Кошачий маджонг».",
+            "Скоро здесь появятся «Три в ряд» и «Кошачий маджонг».",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+    }
+}
+
+@Composable
+private fun PairsHubCard(room: Room, onStart: (Int) -> Unit) {
+    val roomCats = Cats.forRoom(room.id)
+    var cardCount by rememberSaveable { mutableStateOf(10) }
+
+    ItemCard(Modifier.fillMaxWidth()) {
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
+            roomCats.take(3).forEach { cat ->
+                Surface(
+                    modifier = Modifier.weight(1f).heightIn(min = 90.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    color = FishCard,
+                    border = BorderStroke(2.dp, FishBorder),
+                ) {
+                    Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(4.dp)) {
+                        Image(gameImage(cat.image), contentDescription = null, modifier = Modifier.size(76.dp))
+                    }
+                }
+            }
+            Surface(
+                modifier = Modifier.weight(1f).heightIn(min = 90.dp),
+                shape = RoundedCornerShape(14.dp),
+                color = MaterialTheme.colorScheme.primary,
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text("?", color = Color.White, style = MaterialTheme.typography.displayLarge)
+                }
+            }
+        }
+        Text("${cardCount / 2} ПАР", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+        Text("Найди пару", style = MaterialTheme.typography.titleLarge)
+        Text(
+            "Открывайте по две карточки и запоминайте, где спрятались одинаковые котики.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text("Размер поля", style = MaterialTheme.typography.titleSmall)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            PairsGame.CARD_COUNTS.forEach { option ->
+                val active = option == cardCount
+                Surface(
+                    modifier = Modifier.weight(1f).heightIn(min = 64.dp)
+                        .selectable(selected = active, role = Role.RadioButton) { cardCount = option },
+                    shape = RoundedCornerShape(14.dp),
+                    color = if (active) FishCard else CreamCard,
+                    border = BorderStroke(if (active) 3.dp else 1.dp, if (active) MaterialTheme.colorScheme.primary else CardBorder),
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center, modifier = Modifier.padding(6.dp)) {
+                        Text("$option", style = MaterialTheme.typography.titleSmall)
+                        Text("карточек", style = MaterialTheme.typography.bodySmall, maxLines = 1)
+                    }
+                }
+            }
+        }
+        BigButton("Играть · $cardCount карточек", { onStart(cardCount) }, modifier = Modifier.fillMaxWidth())
     }
 }
 
