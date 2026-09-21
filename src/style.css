@@ -233,7 +233,7 @@ footer { padding: 16px 0 4px; color: #ad9381; font-size: 11px; text-align: cente
 .mini-game-focus-shell { max-width: none; min-height: 100vh; padding: 0; }
 .mini-game-focus-shell .match3-screen { display: grid; place-items: center; min-height: 100vh; margin: 0; border-radius: 0; }
 .mini-game-focus-shell .match3-card { width: min(820px, 100%); }
-.minigames-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.minigames-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
 .minigame-card { display: flex; flex-direction: column; min-width: 0; padding: 18px; border: 1px solid #e6d1b8; border-radius: 20px; background: #fffdf8; box-shadow: 0 5px 16px #5b3b2412; }
 .minigame-card h3 { margin-top: 5px; font-family: Georgia, 'Times New Roman', serif; font-size: 23px; }
 .minigame-card p { flex: 1; margin: 8px 0 17px; color: #8b6a58; font-size: 13px; line-height: 1.5; }
@@ -255,6 +255,14 @@ footer { padding: 16px 0 4px; color: #ad9381; font-size: 11px; text-align: cente
 .mahjong-mode-picker button:hover { background: #fff8ed; }
 .mahjong-mode-picker button.active { border-color: #d29a70; background: #fffaf2; color: #6b3c29; box-shadow: 0 2px 7px #5b3c2418; }
 .mahjong-mode-picker small { color: #aa8068; font-size: 9px; }
+.sliding-preview { position: relative; align-items: center; padding: 12px; }
+.sliding-preview > img { width: 82%; height: 95%; object-fit: contain; filter: drop-shadow(0 4px 4px #51301f40); }
+.sliding-preview-grid { position: absolute; inset: 13px 20px; border: 2px solid #fff8e8; border-radius: 9px; background-image: linear-gradient(to right, transparent calc(33.333% - 1px), #8e5c3f99 calc(33.333% - 1px) calc(33.333% + 1px), transparent calc(33.333% + 1px) calc(66.666% - 1px), #8e5c3f99 calc(66.666% - 1px) calc(66.666% + 1px), transparent calc(66.666% + 1px)), linear-gradient(to bottom, transparent calc(33.333% - 1px), #8e5c3f99 calc(33.333% - 1px) calc(33.333% + 1px), transparent calc(33.333% + 1px) calc(66.666% - 1px), #8e5c3f99 calc(66.666% - 1px) calc(66.666% + 1px), transparent calc(66.666% + 1px)); box-shadow: 0 4px 12px #51301f33; }
+.sliding-preview-empty { position: absolute; right: 20px; bottom: 13px; width: calc((100% - 40px) / 3); height: calc((100% - 26px) / 3); border: 2px solid #80533c55; border-radius: 5px; background: #916349dc; }
+.sliding-cat-picker { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; margin: 0 0 8px; }
+.sliding-cat-picker button { min-width: 0; aspect-ratio: 1; padding: 2px; overflow: hidden; border: 1px solid #dfc5aa; border-radius: 8px; background: #fff8ed; cursor: pointer; }
+.sliding-cat-picker button.active { border-color: #b76543; background: #ffe3b8; box-shadow: 0 0 0 2px #efc08977; }
+.sliding-cat-picker img { width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
 .pairs-card { width: min(820px, 100%); }
 .pairs-board { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; width: min(100%, 720px); margin: 0 auto; padding: 12px; border: 3px solid #986044; border-radius: 18px; background: #6d4531b8; box-shadow: inset 0 3px 12px #351c1455, 0 7px 20px #2d1c143d; perspective: 1000px; }
 .pairs-board.cards-16 { grid-template-columns: repeat(4, minmax(0, 1fr)); width: min(100%, 590px); }

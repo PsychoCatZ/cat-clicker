@@ -12,6 +12,9 @@ import { createPairsRound, hidePairMismatch, revealPairCard } from './pairs/redu
 import { pairsFishReward } from './pairs/scoring'
 import type { PairsCardCount, PairsRound } from './pairs/types'
 import { rooms } from './rooms'
+import { createSlidingRound, moveSlidingTile, reshuffleSlidingRound } from './sliding/reducer'
+import { slidingFishReward } from './sliding/scoring'
+import type { SlidingDifficulty, SlidingRound } from './sliding/types'
 import { upgradesForRoom, type Upgrade } from './upgrades'
 
 export type GameMode = 'normal' | 'expert'
@@ -36,6 +39,7 @@ export interface GameState {
   match3: { activeRound: Match3Round | null }
   pairs: { activeRound: PairsRound | null }
   mahjong: { activeRound: MahjongRound | null }
+  sliding: { activeRound: SlidingRound | null }
   offlineReport: OfflineReport | null
   finalDismissed: boolean
 }
@@ -63,6 +67,10 @@ export type GameAction =
   | { type: 'mahjongHint' }
   | { type: 'mahjongShuffle' }
   | { type: 'settleMahjong' }
+  | { type: 'startSliding'; seed: number; difficulty: SlidingDifficulty; catId?: string }
+  | { type: 'slidingMove'; tileId: number }
+  | { type: 'slidingReshuffle' }
+  | { type: 'settleSliding' }
   | { type: 'dismissOfflineReport' }
   | { type: 'buyResource'; id: string }
   | { type: 'buyUpgrade'; id: string }
@@ -97,6 +105,7 @@ export const initialState = (mode: GameMode = 'normal'): GameState => ({
   match3: { activeRound: null },
   pairs: { activeRound: null },
   mahjong: { activeRound: null },
+  sliding: { activeRound: null },
   offlineReport: null,
   finalDismissed: false,
 })
@@ -196,6 +205,19 @@ function settleMahjong(state: GameState): GameState {
   }
 }
 
+function settleSliding(state: GameState): GameState {
+  const round = state.sliding.activeRound
+  if (!round) return state
+  const reward = slidingFishReward(round.score, round.roomId, round.mode)
+  return {
+    ...state,
+    rooms: state.rooms.map((room, index) => index === round.roomId - 1
+      ? { ...room, fish: Math.min(1e15, room.fish + reward) }
+      : room),
+    sliding: { activeRound: null },
+  }
+}
+
 export const OFFLINE_LIMIT_SECONDS = 8 * 60 * 60
 
 export function applyOfflineProgress(state: GameState, elapsedSeconds: number): GameState {
@@ -249,7 +271,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
     case 'toggleLights':
       return progress.hunger <= 0 ? state : updateProgress(state, { ...progress, lightsOff: !progress.lightsOff })
     case 'startMatch3':
-      return state.match3.activeRound || state.pairs.activeRound || state.mahjong.activeRound ? state : {
+      return state.match3.activeRound || state.pairs.activeRound || state.mahjong.activeRound || state.sliding.activeRound ? state : {
         ...state,
         match3: {
           activeRound: createMatch3Round(
@@ -269,7 +291,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
     case 'settleMatch3':
       return settleMatch3(state)
     case 'startPairs':
-      return state.pairs.activeRound || state.match3.activeRound || state.mahjong.activeRound ? state : {
+      return state.pairs.activeRound || state.match3.activeRound || state.mahjong.activeRound || state.sliding.activeRound ? state : {
         ...state,
         pairs: {
           activeRound: createPairsRound(
@@ -296,7 +318,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
     case 'settlePairs':
       return settlePairs(state)
     case 'startMahjong':
-      return state.mahjong.activeRound || state.match3.activeRound || state.pairs.activeRound ? state : {
+      return state.mahjong.activeRound || state.match3.activeRound || state.pairs.activeRound || state.sliding.activeRound ? state : {
         ...state,
         mahjong: {
           activeRound: createMahjongRound(
@@ -328,6 +350,34 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
     }
     case 'settleMahjong':
       return settleMahjong(state)
+    case 'startSliding':
+      return state.sliding.activeRound || state.match3.activeRound || state.pairs.activeRound || state.mahjong.activeRound ? state : {
+        ...state,
+        sliding: {
+          activeRound: createSlidingRound(
+            state.currentRoom,
+            state.mode,
+            catsForRoom(state.currentRoom).map((cat) => cat.id),
+            action.difficulty,
+            action.seed,
+            action.catId,
+          ),
+        },
+      }
+    case 'slidingMove': {
+      const round = state.sliding.activeRound
+      if (!round || round.roomId !== state.currentRoom) return state
+      const next = moveSlidingTile(round, action.tileId)
+      return next === round ? state : { ...state, sliding: { activeRound: next } }
+    }
+    case 'slidingReshuffle': {
+      const round = state.sliding.activeRound
+      if (!round) return state
+      const next = reshuffleSlidingRound(round)
+      return next === round ? state : { ...state, sliding: { activeRound: next } }
+    }
+    case 'settleSliding':
+      return settleSliding(state)
     case 'dismissOfflineReport':
       return state.offlineReport ? { ...state, offlineReport: null } : state
     case 'tick': {
@@ -415,7 +465,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         ? updateProgress(state, { ...progress, selectedCat: action.id }) : state
     case 'visitRoom':
       return Number.isInteger(action.roomId) && action.roomId >= 1 && action.roomId <= state.unlockedRoom
-        ? { ...settleMahjong(settlePairs(settleMatch3(state))), currentRoom: action.roomId } : state
+        ? { ...settleSliding(settleMahjong(settlePairs(settleMatch3(state)))), currentRoom: action.roomId } : state
     case 'enterNextRoom':
       return roomComplete(state) && state.currentRoom < rooms.length
         ? { ...state, currentRoom: state.currentRoom + 1, unlockedRoom: Math.max(state.unlockedRoom, state.currentRoom + 1) } : state

@@ -5,7 +5,7 @@ import { build } from 'esbuild'
 
 const bundled = await build({
   stdin: {
-    contents: "export * from './src/game/economy.ts'; export * from './src/game/cats.ts'; export * from './src/game/upgrades.ts'; export * from './src/game/items.ts'; export * from './src/game/rooms.ts'; export * from './src/game/save.ts'; export * from './src/game/furniture.ts'; export * from './src/game/match3/board.ts'; export * from './src/game/match3/scoring.ts'; export * from './src/game/pairs/scoring.ts'; export * from './src/game/mahjong/board.ts'; export * from './src/game/mahjong/layouts.ts'; export * from './src/game/mahjong/scoring.ts';",
+    contents: "export * from './src/game/economy.ts'; export * from './src/game/cats.ts'; export * from './src/game/upgrades.ts'; export * from './src/game/items.ts'; export * from './src/game/rooms.ts'; export * from './src/game/save.ts'; export * from './src/game/furniture.ts'; export * from './src/game/match3/board.ts'; export * from './src/game/match3/scoring.ts'; export * from './src/game/pairs/scoring.ts'; export * from './src/game/mahjong/board.ts'; export * from './src/game/mahjong/layouts.ts'; export * from './src/game/mahjong/scoring.ts'; export * from './src/game/sliding/board.ts'; export * from './src/game/sliding/layouts.ts'; export * from './src/game/sliding/scoring.ts';",
     resolveDir: process.cwd(),
     sourcefile: 'verification.ts',
   },
@@ -80,6 +80,17 @@ const mahjongReward = game.mahjongFishReward(100, 1, 'normal')
 mahjong = reduce(mahjong, { type: 'settleMahjong' })
 assert.equal(mahjong.mahjong.activeRound, null)
 assert.equal(game.activeProgress(mahjong).fish, mahjongReward, 'mahjong reward reaches the starting room on early exit')
+let sliding = reduce(game.initialState(), { type: 'startSliding', seed: 11223, difficulty: 'easy', catId: 'basic-03' })
+assert.ok(sliding.sliding.activeRound)
+const slidingSize = sliding.sliding.activeRound.size
+const finalTile = slidingSize ** 2 - 2
+sliding.sliding.activeRound.tiles = game.moveSlidingTileOnBoard(game.createSolvedSlidingBoard(slidingSize), slidingSize, finalTile)
+sliding = reduce(sliding, { type: 'slidingMove', tileId: finalTile })
+assert.equal(sliding.sliding.activeRound.status, 'finished')
+const slidingReward = game.slidingFishReward(sliding.sliding.activeRound.score, 1, 'normal')
+sliding = reduce(sliding, { type: 'settleSliding' })
+assert.equal(sliding.sliding.activeRound, null)
+assert.equal(game.activeProgress(sliding).fish, slidingReward, 'sliding reward reaches the starting room')
 let resting = reduce(decorating, { type: 'toggleLights' })
 assert.equal(game.activeProgress(resting).lightsOff, true)
 const beforeRest = game.activeProgress(resting)
@@ -167,9 +178,14 @@ let savedMahjong = reduce(game.initialState(), { type: 'startMahjong', seed: 135
 savedMahjong = reduce(savedMahjong, { type: 'mahjongHint' })
 game.saveGame(savedMahjong)
 assert.deepEqual(game.loadGame().mahjong.activeRound, savedMahjong.mahjong.activeRound, 'active mahjong round survives reload')
+let savedSliding = reduce(game.initialState(), { type: 'startSliding', seed: 86420, difficulty: 'hard', catId: 'basic-05' })
+savedSliding = reduce(savedSliding, { type: 'slidingMove', tileId: game.movableSlidingTileIds(savedSliding.sliding.activeRound.tiles, 5)[0] })
+game.saveGame(savedSliding)
+assert.deepEqual(game.loadGame().sliding.activeRound, savedSliding.sliding.activeRound, 'active sliding puzzle survives reload')
 const legacyPairs = reduce(game.initialState(), { type: 'startPairs', seed: 45678, cardCount: 10 })
 legacyPairs.pairs.activeRound.rulesId = 'pairs-5'
 delete legacyPairs.pairs.activeRound.cardCount
+saved.delete('cat-clicker-save-v6')
 saved.delete('cat-clicker-save-v5')
 saved.set('cat-clicker-save-v4', JSON.stringify({ ...legacyPairs, savedAt: Date.now() }))
 assert.equal(game.loadGame().pairs.activeRound.rulesId, 'pairs-10', 'original ten-card round migrates to the sized rules id')
@@ -200,7 +216,9 @@ delete legacyV2.rooms[0].lightsOff
 delete legacyV2.match3
 delete legacyV2.pairs
 delete legacyV2.mahjong
+delete legacyV2.sliding
 delete legacyV2.offlineReport
+saved.delete('cat-clicker-save-v6')
 saved.delete('cat-clicker-save-v5')
 saved.delete('cat-clicker-save-v4')
 saved.delete('cat-clicker-save-v3')

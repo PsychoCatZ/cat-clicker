@@ -9,7 +9,8 @@
     "check:match3": "node tools/check_match3.mjs",
     "check:pairs": "node tools/check_pairs.mjs",
     "check:mahjong": "node tools/check_mahjong.mjs",
-    "check": "npm run check:game && npm run check:match3 && npm run check:pairs && npm run check:mahjong",
+    "check:sliding": "node tools/check_sliding.mjs",
+    "check": "npm run check:game && npm run check:match3 && npm run check:pairs && npm run check:mahjong && npm run check:sliding",
     "preview": "vite preview --configLoader runner",
     "check:game": "node tools/check_game.mjs"
   },

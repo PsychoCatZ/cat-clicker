@@ -9,10 +9,14 @@ import { getMahjongLayout, mahjongDifficulties } from './mahjong/layouts'
 import type { MahjongDifficulty, MahjongEvent, MahjongRound, MahjongTile } from './mahjong/types'
 import { PAIRS_CARD_COUNTS, type PairCard, type PairsCardCount, type PairsRound, type PairsRulesId } from './pairs/types'
 import { rooms } from './rooms'
+import { isSlidingBoardSolvable, isSlidingBoardSolved } from './sliding/board'
+import { getSlidingConfig, slidingDifficulties } from './sliding/layouts'
+import { slidingCompletionScore } from './sliding/scoring'
+import type { SlidingDifficulty, SlidingEvent, SlidingRound } from './sliding/types'
 import { upgradesForRoom } from './upgrades'
 
-const SAVE_KEY = 'cat-clicker-save-v5'
-const CURRENT_SAVE_KEYS = [SAVE_KEY, 'cat-clicker-save-v4', 'cat-clicker-save-v3', 'cat-clicker-save-v2']
+const SAVE_KEY = 'cat-clicker-save-v6'
+const CURRENT_SAVE_KEYS = [SAVE_KEY, 'cat-clicker-save-v5', 'cat-clicker-save-v4', 'cat-clicker-save-v3', 'cat-clicker-save-v2']
 const OLD_SAVE_KEY = 'cat-clicker-save-v1'
 
 const safeNumber = (value: unknown, fallback = 0): number =>
@@ -218,6 +222,45 @@ function readMahjongRound(value: unknown, mode: GameMode, currentRoom: number, u
   }
 }
 
+function readSlidingRound(value: unknown, mode: GameMode, currentRoom: number, unlockedRoom: number): SlidingRound | null {
+  if (!value || typeof value !== 'object') return null
+  const data = value as Partial<SlidingRound>
+  const roomId = typeof data.roomId === 'number' && Number.isInteger(data.roomId) ? data.roomId : 0
+  const difficulty = slidingDifficulties.includes(data.difficulty as SlidingDifficulty)
+    ? data.difficulty as SlidingDifficulty : null
+  if (roomId !== currentRoom || roomId < 1 || roomId > unlockedRoom || data.mode !== mode
+    || data.rulesId !== 'sliding-v1' || !difficulty) return null
+  const config = getSlidingConfig(difficulty)
+  if (data.size !== config.size || !Array.isArray(data.tiles) || data.tiles.length !== config.size ** 2) return null
+  const tiles: Array<number | null> = []
+  for (const tile of data.tiles as unknown[]) {
+    if (tile !== null && (typeof tile !== 'number' || !Number.isInteger(tile))) return null
+    tiles.push(tile as number | null)
+  }
+  if (!isSlidingBoardSolvable(tiles, config.size)) return null
+  const validCats = new Set(catsForRoom(roomId).map((cat) => cat.id))
+  if (typeof data.catId !== 'string' || !validCats.has(data.catId)) return null
+  const moves = Math.min(1000000, Math.floor(safeNumber(data.moves)))
+  const finished = isSlidingBoardSolved(tiles)
+  const validEvents: SlidingEvent[] = [null, 'moved', 'shuffled', 'completed']
+  const savedEvent = validEvents.includes(data.lastEvent as SlidingEvent) ? data.lastEvent as SlidingEvent : null
+  return {
+    id: typeof data.id === 'string' ? data.id.slice(0, 160) : `${roomId}-${mode}-${difficulty}-${data.catId}-saved`,
+    roomId,
+    mode,
+    rulesId: 'sliding-v1',
+    difficulty,
+    size: config.size,
+    catId: data.catId,
+    tiles,
+    moves,
+    score: finished ? slidingCompletionScore(difficulty, moves) : 0,
+    rngState: typeof data.rngState === 'number' && Number.isInteger(data.rngState) ? data.rngState >>> 0 || 1 : 1,
+    status: finished ? 'finished' : 'playing',
+    lastEvent: finished ? 'completed' : savedEvent === 'completed' ? null : savedEvent,
+  }
+}
+
 function readCurrentSave(raw: string): GameState | null {
   const value: unknown = JSON.parse(raw)
   if (!value || typeof value !== 'object') return null
@@ -246,13 +289,20 @@ function readCurrentSave(raw: string): GameState | null {
     mahjong: {
       activeRound: readMahjongRound(data.mahjong?.activeRound, mode, currentRoom, unlockedRoom),
     },
+    sliding: {
+      activeRound: readSlidingRound(data.sliding?.activeRound, mode, currentRoom, unlockedRoom),
+    },
     offlineReport: null,
     finalDismissed: data.finalDismissed === true,
   }
   if (state.match3.activeRound) {
     state.pairs.activeRound = null
     state.mahjong.activeRound = null
-  } else if (state.pairs.activeRound) state.mahjong.activeRound = null
+    state.sliding.activeRound = null
+  } else if (state.pairs.activeRound) {
+    state.mahjong.activeRound = null
+    state.sliding.activeRound = null
+  } else if (state.mahjong.activeRound) state.sliding.activeRound = null
   return applyOfflineProgress(state, elapsedSeconds)
 }
 
