@@ -172,11 +172,3 @@ fun LazyListScope.catsShop(state: GameState, columns: Int, onBuy: (String) -> Un
         }
     }
 }
-
-fun LazyListScope.miniGamesPlaceholder() {
-    item(key = "minigames-placeholder") {
-        SectionHeading("Спокойные игры без таймера", "Мини-игры", "Здесь появятся «Три в ряд», «Найди пару», «Кошачий маджонг» и «Кошачьи пятнашки». Пока они готовятся.")
-    }
-}
-
-private fun Modifier.fillMaxWidth(): Modifier = this.then(Modifier.fillMaxWidth())

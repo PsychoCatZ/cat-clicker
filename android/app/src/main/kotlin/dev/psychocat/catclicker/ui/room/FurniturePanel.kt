@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import dev.psychocat.catclicker.assets.gameImage
 import dev.psychocat.catclicker.game.format.Numbers
 import dev.psychocat.catclicker.ui.components.BigButton
+import dev.psychocat.catclicker.ui.components.ButtonStyle
 import dev.psychocat.catclicker.ui.theme.CardBorder
 import dev.psychocat.catclicker.ui.theme.CreamCard
 import dev.psychocat.catclicker.ui.theme.FishCard
@@ -41,8 +42,10 @@ fun FurniturePanel(
     selectedId: String?,
     onToggleEditing: () -> Unit,
     onSelect: (String) -> Unit,
+    onRemove: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val chosenItem = items.firstOrNull { editing && it.upgrade.id == selectedId }
     val waiting = items.count { it.point == null }
     Surface(
         modifier = modifier.fillMaxWidth(),
@@ -93,9 +96,17 @@ fun FurniturePanel(
                     }
                 }
             }
+            if (chosenItem != null && chosenItem.point != null) {
+                BigButton(
+                    "Убрать «${chosenItem.upgrade.name}» из комнаты",
+                    { onRemove(chosenItem.upgrade.id) },
+                    modifier = Modifier.fillMaxWidth(),
+                    style = ButtonStyle.Tonal,
+                )
+            }
             if (editing) {
                 Text(
-                    "Выберите предмет и коснитесь места в комнате или перетащите его. Кот не собирает рыбок, пока вы расставляете.",
+                    "Выберите предмет и коснитесь места в комнате или перетащите его. Кнопка «Убрать» возвращает предмет в список, доход от него сохраняется. Кот не собирает рыбок, пока вы расставляете.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

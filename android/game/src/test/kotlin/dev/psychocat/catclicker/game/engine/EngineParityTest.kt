@@ -2,6 +2,9 @@ package dev.psychocat.catclicker.game.engine
 
 import dev.psychocat.catclicker.game.data.FurniturePoint
 import dev.psychocat.catclicker.game.data.SceneLayout
+import dev.psychocat.catclicker.game.minigames.RoundStatus
+import dev.psychocat.catclicker.game.minigames.sliding.SlidingDifficulty
+import dev.psychocat.catclicker.game.minigames.sliding.SlidingRound
 import dev.psychocat.catclicker.game.model.GameAction
 import dev.psychocat.catclicker.game.model.GameMode
 import dev.psychocat.catclicker.game.model.GameState
@@ -15,6 +18,8 @@ import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.long
+import kotlinx.serialization.json.contentOrNull
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.test.Test
@@ -54,6 +59,14 @@ class EngineParityTest {
             "showFinal" -> GameAction.ShowFinal
             "startExpert" -> GameAction.StartExpert
             "reset" -> GameAction.Reset
+            "startSliding" -> GameAction.StartSliding(
+                seed = json.getValue("seed").jsonPrimitive.double.toLong(),
+                difficulty = SlidingDifficulty.fromKey(string("difficulty"))!!,
+                catId = json["catId"]?.jsonPrimitive?.contentOrNull,
+            )
+            "slidingMove" -> GameAction.SlidingMove(json.getValue("tileId").jsonPrimitive.int)
+            "slidingReshuffle" -> GameAction.SlidingReshuffle
+            "settleSliding" -> GameAction.SettleMiniGame
             else -> error("Unknown action $type")
         }
     }
@@ -83,6 +96,30 @@ class EngineParityTest {
         assertClose(expected.jsonObject.getValue("y").jsonPrimitive.double, actual.y, "$label.y")
     }
 
+    private fun assertSliding(expected: JsonElement?, state: GameState, label: String) {
+        val round = state.activeGame
+        if (expected == null || expected is JsonNull) {
+            assertEquals(null, round, "$label active game")
+            return
+        }
+        val web = expected.jsonObject
+        val actual = round as? SlidingRound ?: error("$label: expected a sliding round but was $round")
+        assertEquals(web.getValue("id").jsonPrimitive.content, actual.id, "$label sliding id")
+        assertEquals(web.getValue("roomId").jsonPrimitive.int, actual.roomId, "$label sliding room")
+        assertEquals(web.getValue("mode").jsonPrimitive.content == "expert", actual.mode == GameMode.EXPERT, "$label sliding mode")
+        assertEquals(web.getValue("difficulty").jsonPrimitive.content, actual.difficulty.key, "$label sliding difficulty")
+        assertEquals(web.getValue("catId").jsonPrimitive.content, actual.catId, "$label sliding cat")
+        assertEquals(
+            web.getValue("tiles").jsonArray.map { if (it is JsonNull) null else it.jsonPrimitive.int },
+            actual.tiles, "$label sliding tiles",
+        )
+        assertEquals(web.getValue("moves").jsonPrimitive.int, actual.moves, "$label sliding moves")
+        assertEquals(web.getValue("score").jsonPrimitive.int, actual.score, "$label sliding score")
+        assertEquals(web.getValue("rngState").jsonPrimitive.long, actual.rngState, "$label sliding rng")
+        assertEquals(web.getValue("status").jsonPrimitive.content, if (actual.status == RoundStatus.FINISHED) "finished" else "playing", "$label sliding status")
+        assertEquals(web["lastEvent"]?.takeIf { it !is JsonNull }?.jsonPrimitive?.content, actual.lastEvent?.key, "$label sliding event")
+    }
+
     private fun assertSnapshot(expected: JsonObject, state: GameState, label: String) {
         assertEquals(expected.getValue("mode").jsonPrimitive.content == "expert", state.mode == GameMode.EXPERT, "$label mode")
         assertEquals(expected.getValue("currentRoom").jsonPrimitive.int, state.currentRoom, "$label currentRoom")
@@ -99,6 +136,8 @@ class EngineParityTest {
             assertClose(report.jsonObject.getValue("fishEarned").jsonPrimitive.double, actual.fishEarned, "$label report.fish")
             assertClose(report.jsonObject.getValue("hungerSpent").jsonPrimitive.double, actual.hungerSpent, "$label report.hunger")
         }
+
+        assertSliding(expected["sliding"], state, label)
 
         val rooms = expected.getValue("rooms").jsonArray
         assertEquals(rooms.size, state.rooms.size)
@@ -129,7 +168,7 @@ class EngineParityTest {
 
     @Test
     fun kotlinEngineReplaysEveryRecordedWebSession() {
-        assertTrue(scenarios.size >= 5, "golden file looks incomplete")
+        assertTrue(scenarios.size >= 9, "golden file looks incomplete")
         for (scenario in scenarios) {
             val name = scenario.jsonObject.getValue("name").jsonPrimitive.content
             var state = GameState.initial()

@@ -13,7 +13,7 @@ import { build } from 'esbuild'
 
 const bundled = await build({
   stdin: {
-    contents: "export * from './src/game/economy.ts'; export * from './src/game/cats.ts'; export * from './src/game/upgrades.ts'; export * from './src/game/items.ts'; export * from './src/game/rooms.ts';",
+    contents: "export * from './src/game/economy.ts'; export * from './src/game/cats.ts'; export * from './src/game/upgrades.ts'; export * from './src/game/items.ts'; export * from './src/game/rooms.ts'; export * from './src/game/sliding/board.ts'; export * from './src/game/sliding/layouts.ts';",
     resolveDir: process.cwd(),
     sourcefile: 'engine-golden.ts',
   },
@@ -27,6 +27,7 @@ const snapshot = (state) => ({
   unlockedRoom: state.unlockedRoom,
   finalDismissed: state.finalDismissed,
   offlineReport: state.offlineReport,
+  sliding: state.sliding.activeRound,
   rooms: state.rooms.map((room) => ({
     fish: room.fish,
     hunger: room.hunger,
@@ -164,11 +165,78 @@ function bot(seed, count) {
   return steps
 }
 
+// --- Sliding puzzle: solve every difficulty by undoing the shuffle, plus early exits and invalid input ---
+function slidingSolve() {
+  const steps = [{ a: { type: 'reset' } }]
+  let seed = 4242
+  for (const difficulty of game.slidingDifficulties) {
+    const config = game.getSlidingConfig(difficulty)
+    for (const catId of [undefined, 'basic-03']) {
+      seed += 17
+      steps.push({ a: { type: 'startSliding', seed, difficulty, catId } })
+      steps.push({ a: { type: 'startSliding', seed: seed + 1, difficulty, catId } }) // ignored: a round is active
+      steps.push({ a: { type: 'slidingMove', tileId: 999 } })
+      const history = game.shuffleSlidingBoard(config.size, seed, config.shuffleMoves).history
+      steps.push({ a: { type: 'slidingReshuffle' } })
+      steps.push({ a: { type: 'settleSliding' } }) // early exit, no score
+      steps.push({ a: { type: 'startSliding', seed, difficulty, catId } })
+      for (const tileId of [...history].reverse()) steps.push({ a: { type: 'slidingMove', tileId } })
+      steps.push({ a: { type: 'slidingMove', tileId: 0 } }) // finished: ignored
+      steps.push({ a: { type: 'slidingReshuffle' } }) // finished: ignored
+      steps.push({ a: { type: 'settleSliding' } })
+    }
+  }
+  // A round started in room 1 pays into room 1 even after visiting another room.
+  steps.push({ fund: 1e13 })
+  for (const cat of game.catsForRoom(1)) steps.push({ fund: 1e13 }, { a: { type: 'buyCat', id: cat.id } })
+  for (const upgrade of game.upgradesForRoom(1)) steps.push({ fund: 1e13 }, { a: { type: 'buyUpgrade', id: upgrade.id } })
+  steps.push({ a: { type: 'enterNextRoom' } })
+  const history = game.shuffleSlidingBoard(3, 777, 72).history
+  steps.push({ a: { type: 'startSliding', seed: 777, difficulty: 'easy', catId: 'rare-02' } })
+  for (const tileId of [...history].reverse()) steps.push({ a: { type: 'slidingMove', tileId } })
+  steps.push({ a: { type: 'visitRoom', roomId: 1 } })
+  return steps
+}
+
+function slidingBot(seed, count) {
+  let rng = seed >>> 0 || 1
+  const next = () => {
+    rng ^= rng << 13; rng >>>= 0
+    rng ^= rng >>> 17
+    rng ^= rng << 5; rng >>>= 0
+    return rng / 0x100000000
+  }
+  const pick = (list) => list[Math.floor(next() * list.length)]
+  let state = game.initialState()
+  const steps = []
+  for (let i = 0; i < count; i += 1) {
+    const roll = next()
+    const round = state.sliding.activeRound
+    let step
+    if (roll < 0.05) step = { a: { type: 'startSliding', seed: Math.floor(next() * 0xffffffff), difficulty: pick(game.slidingDifficulties), catId: pick([undefined, 'basic-01', 'basic-05', 'rare-01']) } }
+    else if (roll < 0.10) step = { a: { type: 'slidingMove', tileId: Math.floor(next() * 26) } }
+    else if (roll < 0.13) step = { a: { type: 'slidingReshuffle' } }
+    else if (roll < 0.15) step = { a: { type: 'settleSliding' } }
+    else if (roll < 0.16) step = { fund: pick([0, 1e3, 1e13]) }
+    else if (roll < 0.17) step = { a: { type: pick(['buyUpgrade', 'buyCat']), id: pick(['room-1-basic-1', 'basic-02', 'room-1-basic-2']) } }
+    else if (roll < 0.175) step = { a: { type: 'visitRoom', roomId: 1 } }
+    else if (round) {
+      const movable = game.movableSlidingTileIds(round.tiles, round.size)
+      step = { a: { type: 'slidingMove', tileId: pick(movable) } }
+    } else step = { a: { type: 'tick', seconds: 1 } }
+    state = apply(state, step)
+    steps.push(step)
+  }
+  return steps
+}
+
 const scenarios = [
   record('scripted', scripted, 1),
   record('fallback-income', sleeping, 25),
   record('completionist', completionist(), 3),
   ...[11, 2027, 90210, 424242].map((seed) => record(`bot-${seed}`, bot(seed, 3000), 20)),
+  record('sliding-solve', slidingSolve(), 6),
+  ...[5, 77, 31337].map((seed) => record(`sliding-bot-${seed}`, slidingBot(seed, 1500), 12)),
 ]
 
 const outDir = 'android/game/src/test/resources/golden'

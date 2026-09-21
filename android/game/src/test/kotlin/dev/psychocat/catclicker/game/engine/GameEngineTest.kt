@@ -91,6 +91,22 @@ class GameEngineTest {
     }
 
     @Test
+    fun placedFurnitureCanBeTakenOutAndPlacedAgain() {
+        var state = funded().act(GameAction.BuyUpgrade("room-1-basic-1"))
+        state = state.act(GameAction.PlaceFurniture("room-1-basic-1", SceneLayout.DESKTOP, 30.0, 80.0))
+        state = state.act(GameAction.PlaceFurniture("room-1-basic-1", SceneLayout.MOBILE, 40.0, 80.0))
+        assertTrue(state.progress.furniturePositions.containsKey("room-1-basic-1"))
+
+        val removed = state.act(GameAction.RemoveFurniture("room-1-basic-1"))
+        assertTrue(removed.progress.furniturePositions.isEmpty(), "the item is back in the tray for both layouts")
+        assertEquals(1.0, Economy.fishPerSecond(removed), "removing furniture never changes income")
+        assertSame(removed, removed.act(GameAction.RemoveFurniture("room-1-basic-1")), "nothing to remove")
+
+        val again = removed.act(GameAction.PlaceFurniture("room-1-basic-1", SceneLayout.DESKTOP, 50.0, 80.0))
+        assertNotNull(again.progress.furniturePositions["room-1-basic-1"])
+    }
+
+    @Test
     fun unownedFurnitureCannotBePlaced() {
         val state = funded()
         assertSame(state, state.act(GameAction.PlaceFurniture("room-1-advanced-2", SceneLayout.DESKTOP, 30.0, 30.0)))

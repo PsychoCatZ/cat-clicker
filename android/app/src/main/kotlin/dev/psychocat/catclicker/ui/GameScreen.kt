@@ -68,11 +68,16 @@ import dev.psychocat.catclicker.ui.room.SCENE_ASPECT_LANDSCAPE
 import dev.psychocat.catclicker.ui.room.SCENE_ASPECT_PORTRAIT
 import dev.psychocat.catclicker.ui.room.ShopTab
 import dev.psychocat.catclicker.ui.room.ShopTabs
+import dev.psychocat.catclicker.game.minigames.MiniGameRound
+import dev.psychocat.catclicker.game.minigames.MiniGames
+import dev.psychocat.catclicker.game.minigames.sliding.SlidingDifficulty
+import dev.psychocat.catclicker.game.minigames.sliding.SlidingRound
+import dev.psychocat.catclicker.ui.minigames.SlidingScreen
+import dev.psychocat.catclicker.ui.minigames.miniGamesShop
 import dev.psychocat.catclicker.ui.settings.DebugTools
 import dev.psychocat.catclicker.ui.settings.SettingsScreen
 import dev.psychocat.catclicker.ui.shop.catsShop
 import dev.psychocat.catclicker.ui.shop.foodShop
-import dev.psychocat.catclicker.ui.shop.miniGamesPlaceholder
 import dev.psychocat.catclicker.ui.shop.resourcesShop
 import dev.psychocat.catclicker.ui.shop.upgradesShop
 import dev.psychocat.catclicker.ui.theme.Brown
@@ -110,6 +115,17 @@ fun GameScreen(state: GameState, dispatch: (GameAction) -> Boolean, modifier: Mo
         selectedFurniture = null
     }
     val finished = state.currentRoom == Rooms.count && Economy.roomComplete(state)
+    val game = state.activeGame
+
+    /** Ends the round, pays its reward to the room where it started and tells the player about it. */
+    fun leaveGame(round: MiniGameRound, thenStartAgain: (() -> Unit)? = null) {
+        val reward = MiniGames.fishReward(round)
+        dispatch(GameAction.SettleMiniGame)
+        thenStartAgain?.invoke()
+        say(if (reward > 0) "Котификация: +${Numbers.format(reward)} рыбок" else "Раунд завершён")
+    }
+    // Back leaves the game (and pays what was earned), it never closes the app in the middle of a round.
+    BackHandler(enabled = game != null && !showSettings) { game?.let { leaveGame(it) } }
 
     val actions = GameActions(
         onCatTap = { dispatch(GameAction.Click) },
@@ -144,7 +160,11 @@ fun GameScreen(state: GameState, dispatch: (GameAction) -> Boolean, modifier: Mo
         },
         onSelectCat = { id -> dispatch(GameAction.SelectCat(id)) },
         onPlaceFurniture = { id, layout, x, y -> dispatch(GameAction.PlaceFurniture(id, layout, x, y)) },
+        onRemoveFurniture = { id -> dispatch(GameAction.RemoveFurniture(id)) },
         onShowFinal = { dispatch(GameAction.ShowFinal) },
+        onStartSliding = { difficulty, catId ->
+            dispatch(GameAction.StartSliding(System.currentTimeMillis(), difficulty, catId))
+        },
     )
 
     Box(modifier = modifier.fillMaxSize()) {
@@ -159,6 +179,19 @@ fun GameScreen(state: GameState, dispatch: (GameAction) -> Boolean, modifier: Mo
                 },
                 modifier = Modifier.safeDrawingPadding(),
                 debug = debug,
+            )
+        } else if (game is SlidingRound) {
+            SlidingScreen(
+                room = Rooms.byId(game.roomId),
+                round = game,
+                onMove = { dispatch(GameAction.SlidingMove(it)) },
+                onReshuffle = { dispatch(GameAction.SlidingReshuffle) },
+                onPlayAgain = {
+                    leaveGame(game) {
+                        dispatch(GameAction.StartSliding(System.currentTimeMillis(), game.difficulty, game.catId))
+                    }
+                },
+                onExit = { leaveGame(game) },
             )
         } else {
             GameBody(
@@ -245,7 +278,9 @@ private class GameActions(
     val onBuyCat: (String) -> Unit,
     val onSelectCat: (String) -> Unit,
     val onPlaceFurniture: (String, SceneLayout, Double, Double) -> Unit,
+    val onRemoveFurniture: (String) -> Unit,
     val onShowFinal: () -> Unit,
+    val onStartSliding: (SlidingDifficulty, String) -> Unit,
 )
 
 @Composable
@@ -312,6 +347,7 @@ private fun GameBody(
                         onEditing(true)
                         onSelectFurniture(id)
                     },
+                    onRemove = actions.onRemoveFurniture,
                 )
             }
         }
@@ -383,7 +419,7 @@ private fun LazyListScope.shopContent(tab: ShopTab, state: GameState, columns: I
         ShopTab.RESOURCES -> resourcesShop(state, columns, actions.onBuyResource)
         ShopTab.FOOD -> foodShop(state, columns, actions.onBuyFood)
         ShopTab.CATS -> catsShop(state, columns, actions.onBuyCat, actions.onSelectCat)
-        ShopTab.MINIGAMES -> miniGamesPlaceholder()
+        ShopTab.MINIGAMES -> miniGamesShop(Rooms.byId(state.currentRoom), state.progress.selectedCat, actions.onStartSliding)
     }
 }
 

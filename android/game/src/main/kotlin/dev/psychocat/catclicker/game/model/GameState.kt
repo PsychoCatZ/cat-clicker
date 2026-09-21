@@ -4,6 +4,7 @@ import dev.psychocat.catclicker.game.data.Cats
 import dev.psychocat.catclicker.game.data.FurniturePosition
 import dev.psychocat.catclicker.game.data.Items
 import dev.psychocat.catclicker.game.data.Rooms
+import dev.psychocat.catclicker.game.minigames.MiniGameRound
 
 enum class GameMode { NORMAL, EXPERT }
 
@@ -49,6 +50,8 @@ data class GameState(
     val rooms: List<RoomProgress>,
     val offlineReport: OfflineReport? = null,
     val finalDismissed: Boolean = false,
+    /** The single mini-game round in progress, if any. */
+    val activeGame: MiniGameRound? = null,
 ) {
     val progress: RoomProgress get() = rooms[currentRoom - 1]
 

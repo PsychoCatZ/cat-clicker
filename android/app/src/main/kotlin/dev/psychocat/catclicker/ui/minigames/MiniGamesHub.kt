@@ -1,0 +1,117 @@
+package dev.psychocat.catclicker.ui.minigames
+
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import dev.psychocat.catclicker.assets.gameImage
+import dev.psychocat.catclicker.game.data.Cats
+import dev.psychocat.catclicker.game.data.Room
+import dev.psychocat.catclicker.game.minigames.sliding.SlidingDifficulty
+import dev.psychocat.catclicker.ui.components.BigButton
+import dev.psychocat.catclicker.ui.components.CardArt
+import dev.psychocat.catclicker.ui.components.ItemCard
+import dev.psychocat.catclicker.ui.components.SectionHeading
+import dev.psychocat.catclicker.ui.theme.CardBorder
+import dev.psychocat.catclicker.ui.theme.CreamCard
+import dev.psychocat.catclicker.ui.theme.FishCard
+
+/** The "Мини-игры" section of the shop. Games appear here one by one as they are ported. */
+fun LazyListScope.miniGamesShop(room: Room, selectedCatId: String, onStartSliding: (SlidingDifficulty, String) -> Unit) {
+    item(key = "minigames-heading") {
+        SectionHeading(
+            "Спокойные игры · ${room.name}",
+            "Мини-игры",
+            "Без таймера и без влияния на открытие комнат. Очки после игры превращаются в рыбки этой комнаты.",
+        )
+    }
+    item(key = "minigames-sliding") {
+        SlidingHubCard(room, selectedCatId, onStartSliding)
+    }
+    item(key = "minigames-soon") {
+        Text(
+            "Скоро здесь появятся «Три в ряд», «Найди пару» и «Кошачий маджонг».",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun SlidingHubCard(room: Room, selectedCatId: String, onStart: (SlidingDifficulty, String) -> Unit) {
+    val roomCats = Cats.forRoom(room.id)
+    var difficulty by rememberSaveable { mutableStateOf(SlidingDifficulty.EASY) }
+    var chosenCatId by rememberSaveable(room.id) { mutableStateOf(selectedCatId) }
+    val cat = roomCats.firstOrNull { it.id == chosenCatId } ?: roomCats.firstOrNull { it.id == selectedCatId } ?: roomCats.first()
+
+    ItemCard(Modifier.fillMaxWidth()) {
+        CardArt(cat.image, cat.name, height = 170.dp)
+        Text("${difficulty.size}×${difficulty.size} · ОДИН КОТИК", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+        Text("Кошачьи пятнашки", style = MaterialTheme.typography.titleLarge)
+        Text(
+            "Передвигайте соседние плитки в пустую клетку и восстановите изображение котика.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+        Text("Выберите котика", style = MaterialTheme.typography.titleSmall)
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
+            roomCats.forEach { option ->
+                val active = option.id == cat.id
+                Surface(
+                    modifier = Modifier.weight(1f).heightIn(min = 64.dp)
+                        .selectable(selected = active, role = Role.RadioButton) { chosenCatId = option.id },
+                    shape = RoundedCornerShape(14.dp),
+                    color = if (active) FishCard else CreamCard,
+                    border = BorderStroke(if (active) 3.dp else 1.dp, if (active) MaterialTheme.colorScheme.primary else CardBorder),
+                ) {
+                    Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(4.dp)) {
+                        Image(gameImage(option.image), contentDescription = option.name, modifier = Modifier.size(52.dp))
+                    }
+                }
+            }
+        }
+
+        Text("Сложность", style = MaterialTheme.typography.titleSmall)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            SlidingDifficulty.entries.forEach { option ->
+                val active = option == difficulty
+                Surface(
+                    modifier = Modifier.weight(1f).heightIn(min = 64.dp)
+                        .selectable(selected = active, role = Role.RadioButton) { difficulty = option },
+                    shape = RoundedCornerShape(14.dp),
+                    color = if (active) FishCard else CreamCard,
+                    border = BorderStroke(if (active) 3.dp else 1.dp, if (active) MaterialTheme.colorScheme.primary else CardBorder),
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center, modifier = Modifier.padding(6.dp)) {
+                        Text(option.title, style = MaterialTheme.typography.labelMedium, maxLines = 1, textAlign = TextAlign.Center)
+                        Text("${option.size}×${option.size}", style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            }
+        }
+        BigButton("Играть · ${difficulty.size}×${difficulty.size}", { onStart(difficulty, cat.id) }, modifier = Modifier.fillMaxWidth())
+    }
+}

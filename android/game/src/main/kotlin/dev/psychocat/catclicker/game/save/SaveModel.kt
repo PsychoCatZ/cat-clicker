@@ -15,6 +15,7 @@ internal data class SaveDto(
     val unlockedRoom: Int = 1,
     val finalDismissed: Boolean = false,
     val rooms: List<RoomDto> = emptyList(),
+    val activeGame: ActiveGameDto? = null,
 )
 
 @Serializable
@@ -35,3 +36,20 @@ internal data class PointDto(val x: Double, val y: Double)
 
 @Serializable
 internal data class PositionDto(val desktop: PointDto? = null, val mobile: PointDto? = null)
+
+/** The active mini-game round. One optional field per game; a new game only adds a field (with a default). */
+@Serializable
+internal data class ActiveGameDto(val sliding: SlidingRoundDto? = null)
+
+@Serializable
+internal data class SlidingRoundDto(
+    val id: String = "",
+    val roomId: Int = 0,
+    val mode: String = "",
+    val difficulty: String = "",
+    val catId: String = "",
+    val tiles: List<Int?> = emptyList(),
+    val moves: Int = 0,
+    val rngState: Long = 1,
+    val lastEvent: String? = null,
+)

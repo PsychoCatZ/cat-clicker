@@ -8,6 +8,9 @@ import dev.psychocat.catclicker.game.data.FurniturePosition
 import dev.psychocat.catclicker.game.data.Items
 import dev.psychocat.catclicker.game.data.Rooms
 import dev.psychocat.catclicker.game.data.UpgradeTier
+import dev.psychocat.catclicker.game.minigames.MiniGames
+import dev.psychocat.catclicker.game.minigames.sliding.SlidingGame
+import dev.psychocat.catclicker.game.minigames.sliding.SlidingRound
 import dev.psychocat.catclicker.game.data.Upgrades
 import dev.psychocat.catclicker.game.model.GameAction
 import dev.psychocat.catclicker.game.model.GameMode
@@ -51,6 +54,33 @@ object GameEngine {
 
             GameAction.DismissOfflineReport -> if (state.offlineReport != null) state.copy(offlineReport = null) else state
 
+            is GameAction.StartSliding ->
+                if (state.activeGame != null) {
+                    state
+                } else {
+                    state.copy(
+                        activeGame = SlidingGame.create(
+                            state.currentRoom, state.mode, Cats.forRoom(state.currentRoom).map { it.id },
+                            action.difficulty, action.seed, action.catId,
+                        ),
+                    )
+                }
+
+            is GameAction.SlidingMove -> {
+                val round = state.activeGame as? SlidingRound ?: return state
+                if (round.roomId != state.currentRoom) return state
+                val next = SlidingGame.move(round, action.tileId)
+                if (next === round) state else state.copy(activeGame = next)
+            }
+
+            GameAction.SlidingReshuffle -> {
+                val round = state.activeGame as? SlidingRound ?: return state
+                val next = SlidingGame.reshuffle(round)
+                if (next === round) state else state.copy(activeGame = next)
+            }
+
+            GameAction.SettleMiniGame -> settle(state)
+
             is GameAction.BuyResource -> {
                 val resource = Items.resource(action.id) ?: return state
                 val cost = Economy.resourceCost(state, resource.id)
@@ -83,6 +113,11 @@ object GameEngine {
                 val position = (progress.furniturePositions[upgrade.id] ?: FurniturePosition())
                     .with(action.layout, point)
                 state.withProgress(progress.copy(furniturePositions = progress.furniturePositions + (upgrade.id to position)))
+            }
+
+            is GameAction.RemoveFurniture -> {
+                if (progress.furniturePositions[action.id] == null) return state
+                state.withProgress(progress.copy(furniturePositions = progress.furniturePositions - action.id))
             }
 
             is GameAction.BuyFood -> {
@@ -123,7 +158,7 @@ object GameEngine {
                 }
 
             is GameAction.VisitRoom ->
-                if (action.roomId in 1..state.unlockedRoom) state.copy(currentRoom = action.roomId) else state
+                if (action.roomId in 1..state.unlockedRoom) settle(state).copy(currentRoom = action.roomId) else state
 
             GameAction.EnterNextRoom ->
                 if (Economy.roomComplete(state) && state.currentRoom < Rooms.count) {
@@ -142,6 +177,18 @@ object GameEngine {
 
             GameAction.Reset -> GameState.initial()
         }
+    }
+
+    /** Pays the active round's reward to the room where it was started and clears it. */
+    private fun settle(state: GameState): GameState {
+        val round = state.activeGame ?: return state
+        val reward = MiniGames.fishReward(round)
+        return state.copy(
+            rooms = state.rooms.mapIndexed { index, room ->
+                if (index == round.roomId - 1) room.copy(fish = min(MAX_FISH, room.fish + reward)) else room
+            },
+            activeGame = null,
+        )
     }
 
     private fun tick(state: GameState, requestedSeconds: Double): GameState {
