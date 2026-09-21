@@ -39,7 +39,7 @@ internal data class PositionDto(val desktop: PointDto? = null, val mobile: Point
 
 /** The active mini-game round. One optional field per game; a new game only adds a field (with a default). */
 @Serializable
-internal data class ActiveGameDto(val sliding: SlidingRoundDto? = null, val pairs: PairsRoundDto? = null, val match3: Match3RoundDto? = null)
+internal data class ActiveGameDto(val sliding: SlidingRoundDto? = null, val pairs: PairsRoundDto? = null, val match3: Match3RoundDto? = null, val mahjong: MahjongRoundDto? = null)
 
 @Serializable
 internal data class SlidingRoundDto(
@@ -90,3 +90,22 @@ internal data class Match3RoundDto(
 )
 
 internal const val MATCH3_MOVES_DEFAULT = 20
+
+@Serializable
+internal data class MahjongTileDto(val id: Int = -1, val catId: String = "", val removed: Boolean = false)
+
+@Serializable
+internal data class MahjongRoundDto(
+    val id: String = "",
+    val roomId: Int = 0,
+    val mode: String = "",
+    val difficulty: String = "",
+    val tiles: List<MahjongTileDto> = emptyList(),
+    val selectedId: Int? = null,
+    val hintedIds: List<Int> = emptyList(),
+    val score: Int = 0,
+    val hintsUsed: Int = 0,
+    val shuffles: Int = 0,
+    val rngState: Long = 1,
+    val lastEvent: String? = null,
+)

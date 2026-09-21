@@ -3,6 +3,8 @@ package dev.psychocat.catclicker.game.engine
 import dev.psychocat.catclicker.game.data.FurniturePoint
 import dev.psychocat.catclicker.game.data.SceneLayout
 import dev.psychocat.catclicker.game.minigames.RoundStatus
+import dev.psychocat.catclicker.game.minigames.mahjong.MahjongDifficulty
+import dev.psychocat.catclicker.game.minigames.mahjong.MahjongRound
 import dev.psychocat.catclicker.game.minigames.match3.Match3Round
 import dev.psychocat.catclicker.game.minigames.pairs.PairsRound
 import dev.psychocat.catclicker.game.minigames.sliding.SlidingDifficulty
@@ -66,6 +68,14 @@ class EngineParityTest {
                 difficulty = SlidingDifficulty.fromKey(string("difficulty"))!!,
                 catId = json["catId"]?.jsonPrimitive?.contentOrNull,
             )
+            "startMahjong" -> GameAction.StartMahjong(
+                seed = json.getValue("seed").jsonPrimitive.double.toLong(),
+                difficulty = MahjongDifficulty.fromKey(string("difficulty"))!!,
+            )
+            "mahjongSelect" -> GameAction.MahjongSelect(json.getValue("tileId").jsonPrimitive.int)
+            "mahjongHint" -> GameAction.MahjongHint
+            "mahjongShuffle" -> GameAction.MahjongShuffle
+            "settleMahjong" -> GameAction.SettleMiniGame
             "startMatch3" -> GameAction.StartMatch3(json.getValue("seed").jsonPrimitive.double.toLong())
             "match3Swap" -> GameAction.Match3Swap(json.getValue("first").jsonPrimitive.int, json.getValue("second").jsonPrimitive.int)
             "settleMatch3" -> GameAction.SettleMiniGame
@@ -112,12 +122,37 @@ class EngineParityTest {
         val sliding = expected["sliding"]?.takeIf { it !is JsonNull }
         val pairs = expected["pairs"]?.takeIf { it !is JsonNull }
         val match3 = expected["match3"]?.takeIf { it !is JsonNull }
+        val mahjong = expected["mahjong"]?.takeIf { it !is JsonNull }
         when {
             sliding != null -> assertSliding(sliding, state, label)
             pairs != null -> assertPairs(pairs.jsonObject, state, label)
             match3 != null -> assertMatch3(match3.jsonObject, state, label)
+            mahjong != null -> assertMahjong(mahjong.jsonObject, state, label)
             else -> assertEquals(null, state.activeGame, "$label active game")
         }
+    }
+
+    private fun assertMahjong(web: JsonObject, state: GameState, label: String) {
+        val actual = state.activeGame as? MahjongRound ?: error("$label: expected a mahjong round but was ${state.activeGame}")
+        assertEquals(web.getValue("id").jsonPrimitive.content, actual.id, "$label mahjong id")
+        assertEquals(web.getValue("roomId").jsonPrimitive.int, actual.roomId, "$label mahjong room")
+        assertEquals(web.getValue("difficulty").jsonPrimitive.content, actual.difficulty.key, "$label mahjong difficulty")
+        assertEquals(
+            web.getValue("tiles").jsonArray.map {
+                val tile = it.jsonObject
+                Triple(tile.getValue("id").jsonPrimitive.int, tile.getValue("catId").jsonPrimitive.content, tile.getValue("removed").jsonPrimitive.boolean)
+            },
+            actual.tiles.map { Triple(it.id, it.catId, it.removed) }, "$label mahjong tiles",
+        )
+        assertEquals(web.getValue("selectedId").takeIf { it !is JsonNull }?.jsonPrimitive?.int, actual.selectedId, "$label mahjong selected")
+        assertEquals(web.getValue("hintedIds").jsonArray.map { it.jsonPrimitive.int }, actual.hintedIds, "$label mahjong hinted")
+        assertEquals(web.getValue("score").jsonPrimitive.int, actual.score, "$label mahjong score")
+        assertEquals(web.getValue("pairsFound").jsonPrimitive.int, actual.pairsFound, "$label mahjong pairs")
+        assertEquals(web.getValue("hintsUsed").jsonPrimitive.int, actual.hintsUsed, "$label mahjong hints")
+        assertEquals(web.getValue("shuffles").jsonPrimitive.int, actual.shuffles, "$label mahjong shuffles")
+        assertEquals(web.getValue("rngState").jsonPrimitive.long, actual.rngState, "$label mahjong rng")
+        assertEquals(web.getValue("status").jsonPrimitive.content, if (actual.status == RoundStatus.FINISHED) "finished" else "playing", "$label mahjong status")
+        assertEquals(web["lastEvent"]?.takeIf { it !is JsonNull }?.jsonPrimitive?.content, actual.lastEvent?.key, "$label mahjong event")
     }
 
     private fun assertMatch3(web: JsonObject, state: GameState, label: String) {
@@ -233,7 +268,7 @@ class EngineParityTest {
 
     @Test
     fun kotlinEngineReplaysEveryRecordedWebSession() {
-        assertTrue(scenarios.size >= 17, "golden file looks incomplete")
+        assertTrue(scenarios.size >= 26, "golden file looks incomplete")
         for (scenario in scenarios) {
             val name = scenario.jsonObject.getValue("name").jsonPrimitive.content
             var state = GameState.initial()

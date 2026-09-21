@@ -1,5 +1,7 @@
 package dev.psychocat.catclicker.game.minigames
 
+import dev.psychocat.catclicker.game.minigames.mahjong.MahjongGame
+import dev.psychocat.catclicker.game.minigames.mahjong.MahjongRound
 import dev.psychocat.catclicker.game.minigames.match3.Match3Game
 import dev.psychocat.catclicker.game.minigames.match3.Match3Round
 import dev.psychocat.catclicker.game.minigames.pairs.PairsGame
@@ -29,6 +31,7 @@ object MiniGames {
         is SlidingRound -> SlidingGame.fishReward(round.score, round.roomId, round.mode)
         is PairsRound -> PairsGame.fishReward(round)
         is Match3Round -> Match3Game.fishReward(round.score, round.roomId, round.mode)
+        is MahjongRound -> MahjongGame.fishReward(round.score, round.roomId, round.mode)
         else -> 0.0
     }
 }

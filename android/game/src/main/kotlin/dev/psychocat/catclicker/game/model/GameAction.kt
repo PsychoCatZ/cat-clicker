@@ -1,6 +1,7 @@
 package dev.psychocat.catclicker.game.model
 
 import dev.psychocat.catclicker.game.data.SceneLayout
+import dev.psychocat.catclicker.game.minigames.mahjong.MahjongDifficulty
 import dev.psychocat.catclicker.game.minigames.sliding.SlidingDifficulty
 
 /** Port of `GameAction` in src/game/economy.ts (mini-game actions arrive with the mini-games). */
@@ -23,6 +24,12 @@ sealed interface GameAction {
     /** Starts a "Cats in a row" (match-3) round; ignored while another round is active. */
     data class StartMatch3(val seed: Long) : GameAction
     data class Match3Swap(val first: Int, val second: Int) : GameAction
+
+    /** Starts a "Cat mahjong" round; ignored while another round is active. */
+    data class StartMahjong(val seed: Long, val difficulty: MahjongDifficulty) : GameAction
+    data class MahjongSelect(val tileId: Int) : GameAction
+    data object MahjongHint : GameAction
+    data object MahjongShuffle : GameAction
 
     /** Ends the active mini-game and pays its reward to the room where it was started. */
     data object SettleMiniGame : GameAction

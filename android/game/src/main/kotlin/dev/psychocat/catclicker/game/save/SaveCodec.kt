@@ -9,6 +9,12 @@ import dev.psychocat.catclicker.game.data.Upgrades
 import dev.psychocat.catclicker.game.engine.GameEngine
 import dev.psychocat.catclicker.game.minigames.MiniGameRound
 import dev.psychocat.catclicker.game.minigames.RoundStatus
+import dev.psychocat.catclicker.game.minigames.mahjong.MahjongBoard
+import dev.psychocat.catclicker.game.minigames.mahjong.MahjongDifficulty
+import dev.psychocat.catclicker.game.minigames.mahjong.MahjongEvent
+import dev.psychocat.catclicker.game.minigames.mahjong.MahjongLayouts
+import dev.psychocat.catclicker.game.minigames.mahjong.MahjongRound
+import dev.psychocat.catclicker.game.minigames.mahjong.MahjongTile
 import dev.psychocat.catclicker.game.minigames.match3.MATCH3_MOVES
 import dev.psychocat.catclicker.game.minigames.match3.MATCH3_SIZE
 import dev.psychocat.catclicker.game.minigames.match3.Match3Board
@@ -122,6 +128,14 @@ object SaveCodec {
                 lastCombo = lastCombo, shuffled = shuffled,
             ),
         )
+        is MahjongRound -> ActiveGameDto(
+            mahjong = MahjongRoundDto(
+                id = id, roomId = roomId, mode = if (mode == GameMode.EXPERT) "expert" else "normal",
+                difficulty = difficulty.key, tiles = tiles.map { MahjongTileDto(it.id, it.catId, it.removed) },
+                selectedId = selectedId, hintedIds = hintedIds, score = score, hintsUsed = hintsUsed, shuffles = shuffles,
+                rngState = rngState, lastEvent = lastEvent?.key,
+            ),
+        )
         else -> ActiveGameDto() // a game the save format does not know yet: not stored
     }
 
@@ -130,7 +144,49 @@ object SaveCodec {
         dto?.sliding?.let { return cleanSliding(it, mode, currentRoom, unlockedRoom) }
         dto?.pairs?.let { return cleanPairs(it, mode, currentRoom, unlockedRoom) }
         dto?.match3?.let { return cleanMatch3(it, mode, currentRoom, unlockedRoom) }
+        dto?.mahjong?.let { return cleanMahjong(it, mode, currentRoom, unlockedRoom) }
         return null
+    }
+
+    private fun cleanMahjong(dto: MahjongRoundDto, mode: GameMode, currentRoom: Int, unlockedRoom: Int): MahjongRound? {
+        val modeKey = if (mode == GameMode.EXPERT) "expert" else "normal"
+        val difficulty = MahjongDifficulty.fromKey(dto.difficulty) ?: return null
+        if (dto.roomId != currentRoom || dto.roomId < 1 || dto.roomId > unlockedRoom || dto.mode != modeKey) return null
+        val layout = MahjongLayouts.of(difficulty)
+        if (dto.tiles.size != layout.tileCount) return null
+        val roomCats = Cats.forRoom(dto.roomId).map { it.id }.toSet()
+        val rawById = HashMap<Int, MahjongTileDto>()
+        for (raw in dto.tiles) {
+            if (rawById.put(raw.id, raw) != null) return null
+        }
+        val tiles = ArrayList<MahjongTile>()
+        for (slot in layout.slots) {
+            val raw = rawById[slot.id] ?: return null
+            if (raw.catId !in roomCats) return null
+            tiles.add(MahjongTile(slot, raw.catId, raw.removed))
+        }
+        val removedCount = tiles.count { it.removed }
+        if (removedCount % 2 != 0 || roomCats.any { catId -> tiles.count { !it.removed && it.catId == catId } % 2 != 0 }) return null
+        val finished = removedCount == layout.tileCount
+        val selectedId = dto.selectedId?.takeIf { MahjongBoard.isFree(tiles, it) }
+        val pairs = MahjongBoard.findPairs(tiles)
+        val hinted = dto.hintedIds.size == 2 && pairs.any { (a, b) -> a in dto.hintedIds && b in dto.hintedIds }
+        return MahjongRound(
+            id = dto.id.take(120).ifEmpty { "${dto.roomId}-$modeKey-${difficulty.key}-saved" },
+            roomId = dto.roomId,
+            mode = mode,
+            difficulty = difficulty,
+            tiles = tiles,
+            selectedId = if (finished) null else selectedId,
+            hintedIds = if (finished || !hinted) emptyList() else dto.hintedIds,
+            score = dto.score.coerceIn(0, 1_000_000_000),
+            pairsFound = removedCount / 2,
+            hintsUsed = dto.hintsUsed.coerceIn(0, 100_000),
+            shuffles = dto.shuffles.coerceIn(0, 100_000),
+            rngState = Xorshift32.normalize(dto.rngState),
+            status = if (finished) RoundStatus.FINISHED else RoundStatus.PLAYING,
+            lastEvent = if (finished) MahjongEvent.COMPLETED else MahjongEvent.fromKey(dto.lastEvent),
+        )
     }
 
     private fun cleanMatch3(dto: Match3RoundDto, mode: GameMode, currentRoom: Int, unlockedRoom: Int): Match3Round? {

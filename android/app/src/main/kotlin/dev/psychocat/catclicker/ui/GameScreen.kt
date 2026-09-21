@@ -74,6 +74,9 @@ import dev.psychocat.catclicker.game.minigames.sliding.SlidingDifficulty
 import dev.psychocat.catclicker.game.minigames.sliding.SlidingRound
 import dev.psychocat.catclicker.game.minigames.pairs.PairsRound
 import dev.psychocat.catclicker.game.minigames.match3.Match3Round
+import dev.psychocat.catclicker.game.minigames.mahjong.MahjongDifficulty
+import dev.psychocat.catclicker.game.minigames.mahjong.MahjongRound
+import dev.psychocat.catclicker.ui.minigames.MahjongScreen
 import dev.psychocat.catclicker.ui.minigames.Match3Screen
 import dev.psychocat.catclicker.ui.minigames.PairsScreen
 import dev.psychocat.catclicker.ui.minigames.SlidingScreen
@@ -171,6 +174,7 @@ fun GameScreen(state: GameState, dispatch: (GameAction) -> Boolean, modifier: Mo
         },
         onStartPairs = { cardCount -> dispatch(GameAction.StartPairs(System.currentTimeMillis(), cardCount)) },
         onStartMatch3 = { dispatch(GameAction.StartMatch3(System.currentTimeMillis())) },
+        onStartMahjong = { difficulty -> dispatch(GameAction.StartMahjong(System.currentTimeMillis(), difficulty)) },
     )
 
     Box(modifier = modifier.fillMaxSize()) {
@@ -196,6 +200,18 @@ fun GameScreen(state: GameState, dispatch: (GameAction) -> Boolean, modifier: Mo
                     leaveGame(game) {
                         dispatch(GameAction.StartSliding(System.currentTimeMillis(), game.difficulty, game.catId))
                     }
+                },
+                onExit = { leaveGame(game) },
+            )
+        } else if (game is MahjongRound) {
+            MahjongScreen(
+                room = Rooms.byId(game.roomId),
+                round = game,
+                onSelect = { dispatch(GameAction.MahjongSelect(it)) },
+                onHint = { dispatch(GameAction.MahjongHint) },
+                onShuffle = { dispatch(GameAction.MahjongShuffle) },
+                onPlayAgain = {
+                    leaveGame(game) { dispatch(GameAction.StartMahjong(System.currentTimeMillis(), game.difficulty)) }
                 },
                 onExit = { leaveGame(game) },
             )
@@ -310,6 +326,7 @@ private class GameActions(
     val onStartSliding: (SlidingDifficulty, String) -> Unit,
     val onStartPairs: (Int) -> Unit,
     val onStartMatch3: () -> Unit,
+    val onStartMahjong: (MahjongDifficulty) -> Unit,
 )
 
 @Composable
@@ -448,7 +465,7 @@ private fun LazyListScope.shopContent(tab: ShopTab, state: GameState, columns: I
         ShopTab.RESOURCES -> resourcesShop(state, columns, actions.onBuyResource)
         ShopTab.FOOD -> foodShop(state, columns, actions.onBuyFood)
         ShopTab.CATS -> catsShop(state, columns, actions.onBuyCat, actions.onSelectCat)
-        ShopTab.MINIGAMES -> miniGamesShop(Rooms.byId(state.currentRoom), state.progress.selectedCat, actions.onStartMatch3, actions.onStartPairs, actions.onStartSliding)
+        ShopTab.MINIGAMES -> miniGamesShop(Rooms.byId(state.currentRoom), state.progress.selectedCat, actions.onStartMatch3, actions.onStartMahjong, actions.onStartPairs, actions.onStartSliding)
     }
 }
 

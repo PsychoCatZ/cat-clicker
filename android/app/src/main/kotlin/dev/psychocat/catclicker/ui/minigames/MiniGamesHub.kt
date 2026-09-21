@@ -30,6 +30,8 @@ import androidx.compose.ui.unit.dp
 import dev.psychocat.catclicker.assets.gameImage
 import dev.psychocat.catclicker.game.data.Cats
 import dev.psychocat.catclicker.game.data.Room
+import dev.psychocat.catclicker.game.minigames.mahjong.MahjongDifficulty
+import dev.psychocat.catclicker.game.minigames.mahjong.MahjongLayouts
 import dev.psychocat.catclicker.game.minigames.pairs.PairsGame
 import dev.psychocat.catclicker.game.minigames.sliding.SlidingDifficulty
 import dev.psychocat.catclicker.ui.components.BigButton
@@ -46,6 +48,7 @@ fun LazyListScope.miniGamesShop(
     room: Room,
     selectedCatId: String,
     onStartMatch3: () -> Unit,
+    onStartMahjong: (MahjongDifficulty) -> Unit,
     onStartPairs: (Int) -> Unit,
     onStartSliding: (SlidingDifficulty, String) -> Unit,
 ) {
@@ -62,15 +65,61 @@ fun LazyListScope.miniGamesShop(
     item(key = "minigames-pairs") {
         PairsHubCard(room, onStartPairs)
     }
+    item(key = "minigames-mahjong") {
+        MahjongHubCard(room, onStartMahjong)
+    }
     item(key = "minigames-sliding") {
         SlidingHubCard(room, selectedCatId, onStartSliding)
     }
-    item(key = "minigames-soon") {
+}
+
+@Composable
+private fun MahjongHubCard(room: Room, onStart: (MahjongDifficulty) -> Unit) {
+    val roomCats = Cats.forRoom(room.id)
+    var difficulty by rememberSaveable { mutableStateOf(MahjongDifficulty.NORMAL) }
+    val layout = MahjongLayouts.of(difficulty)
+
+    ItemCard(Modifier.fillMaxWidth()) {
+        Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.fillMaxWidth()) {
+            roomCats.forEach { cat ->
+                Surface(
+                    modifier = Modifier.weight(1f).heightIn(min = 70.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    color = catTint(cat),
+                    border = BorderStroke(2.dp, Color(0xFFEFB86D)),
+                ) {
+                    Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(2.dp)) {
+                        Image(gameImage(cat.image), contentDescription = null, modifier = Modifier.size(58.dp))
+                    }
+                }
+            }
+        }
+        Text("${layout.tileCount} ФИШЕК · ${layout.tileCount / 2} ПАР", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+        Text("Кошачий маджонг", style = MaterialTheme.typography.titleLarge)
         Text(
-            "Скоро здесь появится «Кошачий маджонг».",
+            "Снимайте одинаковых свободных котиков со слоёв. Без таймера, штрафов и спешки.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        Text("Сложность", style = MaterialTheme.typography.titleSmall)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            MahjongDifficulty.entries.forEach { option ->
+                val active = option == difficulty
+                Surface(
+                    modifier = Modifier.weight(1f).heightIn(min = 64.dp)
+                        .selectable(selected = active, role = Role.RadioButton) { difficulty = option },
+                    shape = RoundedCornerShape(14.dp),
+                    color = if (active) FishCard else CreamCard,
+                    border = BorderStroke(if (active) 3.dp else 1.dp, if (active) MaterialTheme.colorScheme.primary else CardBorder),
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center, modifier = Modifier.padding(6.dp)) {
+                        Text(option.title, style = MaterialTheme.typography.labelMedium, maxLines = 1, textAlign = TextAlign.Center)
+                        Text("${MahjongLayouts.of(option).tileCount}", style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            }
+        }
+        BigButton("Играть · ${difficulty.title.lowercase()}", { onStart(difficulty) }, modifier = Modifier.fillMaxWidth())
     }
 }
 

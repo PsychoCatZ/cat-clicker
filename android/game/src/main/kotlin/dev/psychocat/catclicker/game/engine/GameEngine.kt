@@ -9,6 +9,8 @@ import dev.psychocat.catclicker.game.data.Items
 import dev.psychocat.catclicker.game.data.Rooms
 import dev.psychocat.catclicker.game.data.UpgradeTier
 import dev.psychocat.catclicker.game.minigames.MiniGames
+import dev.psychocat.catclicker.game.minigames.mahjong.MahjongGame
+import dev.psychocat.catclicker.game.minigames.mahjong.MahjongRound
 import dev.psychocat.catclicker.game.minigames.match3.Match3Game
 import dev.psychocat.catclicker.game.minigames.match3.Match3Round
 import dev.psychocat.catclicker.game.minigames.pairs.PairsGame
@@ -124,6 +126,37 @@ object GameEngine {
                 if (round.roomId != state.currentRoom) return state
                 val turn = Match3Game.play(round, action.first, action.second, Cats.forRoom(round.roomId).map { it.id })
                 if (turn.accepted) state.copy(activeGame = turn.round) else state
+            }
+
+            is GameAction.StartMahjong ->
+                if (state.activeGame != null) {
+                    state
+                } else {
+                    state.copy(
+                        activeGame = MahjongGame.create(
+                            state.currentRoom, state.mode, Cats.forRoom(state.currentRoom).map { it.id },
+                            action.difficulty, action.seed,
+                        ),
+                    )
+                }
+
+            is GameAction.MahjongSelect -> {
+                val round = state.activeGame as? MahjongRound ?: return state
+                if (round.roomId != state.currentRoom) return state
+                val next = MahjongGame.select(round, action.tileId)
+                if (next === round) state else state.copy(activeGame = next)
+            }
+
+            GameAction.MahjongHint -> {
+                val round = state.activeGame as? MahjongRound ?: return state
+                val next = MahjongGame.hint(round)
+                if (next === round) state else state.copy(activeGame = next)
+            }
+
+            GameAction.MahjongShuffle -> {
+                val round = state.activeGame as? MahjongRound ?: return state
+                val next = MahjongGame.shuffle(round, Cats.forRoom(round.roomId).map { it.id })
+                if (next === round) state else state.copy(activeGame = next)
             }
 
             GameAction.SettleMiniGame -> settle(state)

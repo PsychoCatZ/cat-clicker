@@ -13,7 +13,7 @@ import { build } from 'esbuild'
 
 const bundled = await build({
   stdin: {
-    contents: "export * from './src/game/economy.ts'; export * from './src/game/cats.ts'; export * from './src/game/upgrades.ts'; export * from './src/game/items.ts'; export * from './src/game/rooms.ts'; export * from './src/game/sliding/board.ts'; export * from './src/game/sliding/layouts.ts'; export * from './src/game/pairs/types.ts'; export * from './src/game/pairs/reducer.ts'; export * from './src/game/match3/board.ts';",
+    contents: "export * from './src/game/economy.ts'; export * from './src/game/cats.ts'; export * from './src/game/upgrades.ts'; export * from './src/game/items.ts'; export * from './src/game/rooms.ts'; export * from './src/game/sliding/board.ts'; export * from './src/game/sliding/layouts.ts'; export * from './src/game/pairs/types.ts'; export * from './src/game/pairs/reducer.ts'; export * from './src/game/match3/board.ts'; export * from './src/game/mahjong/board.ts';",
     resolveDir: process.cwd(),
     sourcefile: 'engine-golden.ts',
   },
@@ -30,6 +30,7 @@ const snapshot = (state) => ({
   sliding: state.sliding.activeRound,
   pairs: state.pairs.activeRound,
   match3: state.match3.activeRound,
+  mahjong: state.mahjong.activeRound,
   rooms: state.rooms.map((room) => ({
     fish: room.fish,
     hunger: room.hunger,
@@ -348,6 +349,73 @@ function match3Play(seed, count, exitEarly) {
   return steps
 }
 
+// --- Cat mahjong: clear whole boards by always taking the first available pair (which can dead-end and
+// need a shuffle), plus a bot that also selects locked tiles, asks for hints and settles early ---
+function mahjongSolve(seed, difficulty, roomFund) {
+  let state = game.initialState()
+  const steps = []
+  const push = (step) => { state = apply(state, step); steps.push(step) }
+  push({ a: { type: 'startMahjong', seed, difficulty } })
+  push({ a: { type: 'startMahjong', seed: seed + 1, difficulty: 'easy' } }) // ignored: a round is active
+  push({ a: { type: 'mahjongShuffle' } }) // not a dead end: ignored
+  push({ a: { type: 'mahjongHint' } })
+  for (let guard = 0; guard < 300; guard += 1) {
+    const round = state.mahjong.activeRound
+    if (!round || round.status !== 'playing') break
+    const pairs = game.findMahjongPairs(round.tiles)
+    if (pairs.length === 0) {
+      push({ a: { type: 'mahjongShuffle' } })
+      continue
+    }
+    const pair = pairs[Math.floor(pairs.length / 2) % pairs.length]
+    push({ a: { type: 'mahjongSelect', tileId: pair[0] } })
+    push({ a: { type: 'mahjongSelect', tileId: pair[1] } })
+  }
+  push({ a: { type: 'mahjongSelect', tileId: 0 } }) // finished: ignored
+  push({ a: { type: 'settleMahjong' } })
+  return steps
+}
+
+function mahjongBot(seed, count) {
+  let rng = seed >>> 0 || 1
+  const next = () => {
+    rng ^= rng << 13; rng >>>= 0
+    rng ^= rng >>> 17
+    rng ^= rng << 5; rng >>>= 0
+    return rng / 0x100000000
+  }
+  const pick = (list) => list[Math.floor(next() * list.length)]
+  let state = game.initialState()
+  const steps = []
+  const push = (step) => { state = apply(state, step); steps.push(step) }
+  for (let i = 0; i < count; i += 1) {
+    const round = state.mahjong.activeRound
+    if (!round) {
+      if (next() < 0.6) push({ a: { type: 'startMahjong', seed: Math.floor(next() * 0xffffffff), difficulty: pick(['easy', 'easy', 'normal', 'hard']) } })
+      else push({ a: { type: 'tick', seconds: 1 } })
+      continue
+    }
+    const roll = next()
+    const pairs = game.findMahjongPairs(round.tiles)
+    if (round.status === 'playing' && pairs.length === 0 && next() < 0.7) push({ a: { type: 'mahjongShuffle' } })
+    else if (roll < 0.5 && pairs.length > 0) {
+      const pair = pick(pairs)
+      push({ a: { type: 'mahjongSelect', tileId: pair[0] } })
+      push({ a: { type: 'mahjongSelect', tileId: pair[1] } })
+    } else if (roll < 0.62) push({ a: { type: 'mahjongSelect', tileId: Math.floor(next() * 60) } })
+    else if (roll < 0.68) push({ a: { type: 'mahjongSelect', tileId: (pick(game.freeMahjongTiles(round.tiles)) ?? { id: 0 }).id } })
+    else if (roll < 0.74) push({ a: { type: 'mahjongHint' } })
+    else if (roll < 0.78) push({ a: { type: 'mahjongShuffle' } })
+    else if (roll < 0.80) push({ a: { type: 'settleMahjong' } })
+    else if (pairs.length > 0) {
+      const pair = pick(pairs)
+      push({ a: { type: 'mahjongSelect', tileId: pair[0] } })
+      push({ a: { type: 'mahjongSelect', tileId: pair[1] } })
+    } else push({ a: { type: 'tick', seconds: 1 } })
+  }
+  return steps
+}
+
 const scenarios = [
   record('scripted', scripted, 1),
   record('fallback-income', sleeping, 25),
@@ -358,6 +426,8 @@ const scenarios = [
   record('pairs-solve', pairsSolve(), 4),
   ...[8, 606, 12345].map((seed) => record(`pairs-bot-${seed}`, pairsBot(seed, 1500), 12)),
   ...[3, 99, 2026, 77777].map((seed) => record(`match3-${seed}`, match3Play(seed, 60, seed % 2 === 1), 3)),
+  ...['easy', 'normal', 'hard'].flatMap((difficulty, i) => [1000, 555].map((seed) => record(`mahjong-${difficulty}-${seed}`, mahjongSolve(seed + i, difficulty), 6))),
+  ...[41, 5150, 909].map((seed) => record(`mahjong-bot-${seed}`, mahjongBot(seed, 700), 30)),
 ]
 
 const outDir = 'android/game/src/test/resources/golden'
