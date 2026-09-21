@@ -14,14 +14,15 @@ android {
         minSdk = 24
         targetSdk = 36
         versionCode = 1
-        versionName = "0.1.0"
+        versionName = "1.0.0"
     }
 
     buildTypes {
         release {
-            isMinifyEnabled = true
-            isShrinkResources = true
-            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            // Code and resource shrinking are off on purpose: the game is small, the assets dominate the size, and a
+            // release build that behaves exactly like the debug build is worth more than a couple of megabytes.
+            isMinifyEnabled = false
+            isShrinkResources = false
         }
     }
 
