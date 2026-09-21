@@ -20,7 +20,7 @@ interface DragState { id: string; pointerId: number }
 interface DraftPosition { id: string; point: FurniturePoint }
 
 export function GameScene({ room, cat, progress, clickReward, showDoor, onClick, onDoor, onPlace }: Props) {
-  const sleeping = progress.hunger <= 0
+  const sleeping = progress.hunger <= 0 || progress.lightsOff
   const furniture = visibleFurniture(room.id, progress.boughtUpgrades)
   const [editing, setEditing] = useState(false)
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -122,7 +122,7 @@ export function GameScene({ room, cat, progress, clickReward, showDoor, onClick,
       })}
       <div className="scene-caption"><span className="scene-caption-label">Сейчас с вами</span><strong>{cat.name}</strong></div>
       <button className="cat-button" type="button" disabled={sleeping || editing} onClick={onClick}
-        aria-label={sleeping ? `${cat.name} спит. Купите корм` : `Нажать на кота ${cat.name} и получить ${clickReward} рыбок`}>
+        aria-label={sleeping ? `${cat.name} спит${progress.hunger <= 0 ? '. Купите корм' : '. Включите свет'}` : `Нажать на кота ${cat.name} и получить ${clickReward} рыбок`}>
         <img src={sleeping ? cat.sleepingImage : cat.image} alt={sleeping ? `${cat.name} спит` : cat.name} draggable="false" />
       </button>
       {showDoor && <button className="door-button" type="button" disabled={editing} onClick={onDoor} aria-label="Перейти в следующую комнату">
@@ -130,7 +130,8 @@ export function GameScene({ room, cat, progress, clickReward, showDoor, onClick,
       </button>}
       <div className="scene-hint">{editing
         ? selected ? `${selected.surface === 'wall' ? 'Стена' : 'Пол'} · перетащите или коснитесь места` : 'Выберите предмет в панели ниже'
-        : sleeping ? 'Кот уснул. Купите корм — пассивный доход остаётся' : 'Нажимайте на кота, чтобы собирать рыбок'}</div>
+        : progress.hunger <= 0 ? 'Кот уснул. Купите корм — пассивный доход остаётся'
+          : progress.lightsOff ? 'Свет выключен. Кот спит, сытость не тратится' : 'Нажимайте на кота, чтобы собирать рыбок'}</div>
     </div>
     {furniture.length > 0 && <div className="furniture-panel">
       <div className="furniture-heading">

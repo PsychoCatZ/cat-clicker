@@ -225,6 +225,7 @@ def main() -> None:
     for number in range(1, 6):
         copyfile(ROOT / f"Фон {number}.png", backgrounds / f"room-{number}-day.png")
         copyfile(ROOT / f"Фон {number} ночь.png", backgrounds / f"room-{number}-night.png")
+        copyfile(ROOT / f"Фон match-3 {number}.png", backgrounds / f"match3-room-{number}.png")
     copyfile(ROOT / "Финал.png", ASSETS / "ui/final.png")
     # Remove only obsolete outputs from the first version of the slicer.
     for folder_name in ("upgrades/basic", "upgrades/advanced"):
@@ -235,7 +236,7 @@ def main() -> None:
             folder.rmdir()
     for number in range(1, 4):
         (backgrounds / f"room-{number}.png").unlink(missing_ok=True)
-    print("Ten backgrounds and finale copied unchanged.")
+    print("Room and match-3 backgrounds plus finale copied unchanged.")
 
 
 if __name__ == "__main__":

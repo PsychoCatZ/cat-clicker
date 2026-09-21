@@ -5,7 +5,7 @@ import { build } from 'esbuild'
 
 const bundled = await build({
   stdin: {
-    contents: "export * from './src/game/economy.ts'; export * from './src/game/cats.ts'; export * from './src/game/upgrades.ts'; export * from './src/game/items.ts'; export * from './src/game/rooms.ts'; export * from './src/game/save.ts'; export * from './src/game/furniture.ts';",
+    contents: "export * from './src/game/economy.ts'; export * from './src/game/cats.ts'; export * from './src/game/upgrades.ts'; export * from './src/game/items.ts'; export * from './src/game/rooms.ts'; export * from './src/game/save.ts'; export * from './src/game/furniture.ts'; export * from './src/game/match3/board.ts'; export * from './src/game/match3/scoring.ts';",
     resolveDir: process.cwd(),
     sourcefile: 'verification.ts',
   },
@@ -26,7 +26,7 @@ for (const image of [
   ...game.upgrades.map((item) => item.image),
   ...game.resources.map((item) => item.image),
   ...game.foods.map((item) => item.image),
-  ...game.rooms.flatMap((room) => [room.day, room.night]),
+  ...game.rooms.flatMap((room) => [room.day, room.night, room.match3Background]),
   ...Array.from({ length: 5 }, (_, index) => `/assets/ui/${String(index + 1).padStart(2, '0')}.png`),
   '/assets/ui/door/01.png', '/assets/ui/final.png',
 ]) {
@@ -58,6 +58,32 @@ assert.ok(game.activeProgress(decorating).furniturePositions['room-1-basic-1'].d
 decorating = reduce(decorating, { type: 'placeFurniture', id: 'room-1-basic-1', layout: 'mobile', x: 90, y: 90 })
 assert.ok(game.activeProgress(decorating).furniturePositions['room-1-basic-1'].mobile.x < 90, 'mobile item stays within the scene')
 assert.equal(game.fishPerSecond(decorating), 1, 'placing does not change income')
+let miniGame = game.initialState()
+miniGame = reduce(miniGame, { type: 'startMatch3', seed: 12345 })
+assert.ok(miniGame.match3.activeRound)
+assert.equal(game.findMatchRuns(miniGame.match3.activeRound.board).length, 0)
+const miniMove = game.findPossibleSwap(miniGame.match3.activeRound.board)
+assert.ok(miniMove)
+miniGame = reduce(miniGame, { type: 'match3Swap', first: miniMove[0], second: miniMove[1] })
+assert.equal(miniGame.match3.activeRound.movesLeft, 19)
+const miniReward = game.match3FishReward(miniGame.match3.activeRound.score, 1, 'normal')
+miniGame = reduce(miniGame, { type: 'settleMatch3' })
+assert.equal(miniGame.match3.activeRound, null)
+assert.equal(game.activeProgress(miniGame).fish, miniReward, 'match-3 reward reaches the starting room')
+let resting = reduce(decorating, { type: 'toggleLights' })
+assert.equal(game.activeProgress(resting).lightsOff, true)
+const beforeRest = game.activeProgress(resting)
+assert.equal(reduce(resting, { type: 'click' }), resting, 'sleeping cat does not earn clicks')
+resting = reduce(resting, { type: 'tick', seconds: 1 })
+assert.equal(game.activeProgress(resting).hunger, beforeRest.hunger, 'lights off pauses hunger')
+assert.equal(game.activeProgress(resting).fish, beforeRest.fish + 1, 'passive income continues in the dark')
+resting = reduce(resting, { type: 'toggleLights' })
+assert.equal(game.activeProgress(resting).lightsOff, false)
+resting = reduce(resting, { type: 'tick', seconds: 1 })
+assert.ok(game.activeProgress(resting).hunger < beforeRest.hunger, 'hunger resumes when lights are on')
+const beforeClick = game.activeProgress(resting).fish
+resting = reduce(resting, { type: 'click' })
+assert.equal(game.activeProgress(resting).fish, beforeClick + 1, 'clicking resumes when lights are on')
 const beforeInvalidPlacement = decorating
 decorating = reduce(decorating, { type: 'placeFurniture', id: 'room-1-advanced-2', layout: 'desktop', x: 30, y: 30 })
 assert.equal(decorating, beforeInvalidPlacement, 'unowned items cannot be placed')
@@ -74,6 +100,7 @@ assert.ok(game.activeProgress(decorating).furniturePositions['room-1-advanced-2'
 let sleeping = game.initialState()
 sleeping.rooms[0].hunger = 0
 assert.equal(reduce(sleeping, { type: 'click' }), sleeping)
+assert.equal(reduce(sleeping, { type: 'toggleLights' }), sleeping, 'empty hunger cannot wake the cat')
 for (let i = 0; i < 1800; i++) sleeping = reduce(sleeping, { type: 'tick', seconds: 1 })
 assert.ok(Math.abs(game.activeProgress(sleeping).fish - 60) < 0.1, 'mouse fallback takes about 30 minutes')
 sleeping = reduce(sleeping, { type: 'buyFood', id: 'mouse' })
@@ -117,11 +144,20 @@ game.saveGame(state)
 assert.deepEqual(game.loadGame(), state)
 game.saveGame(decorating)
 assert.deepEqual(game.loadGame().rooms[0].furniturePositions, decorating.rooms[0].furniturePositions, 'furniture positions survive reload')
+game.saveGame(reduce(decorating, { type: 'toggleLights' }))
+assert.equal(game.loadGame().rooms[0].lightsOff, true, 'manual sleep survives reload')
+let savedRound = reduce(game.initialState(), { type: 'startMatch3', seed: 54321 })
+game.saveGame(savedRound)
+assert.deepEqual(game.loadGame().match3.activeRound, savedRound.match3.activeRound, 'active match-3 round survives reload')
 const legacyV2 = game.initialState()
 legacyV2.rooms[0].boughtUpgrades = ['room-1-basic-1']
 delete legacyV2.rooms[0].furniturePositions
+delete legacyV2.rooms[0].lightsOff
+delete legacyV2.match3
+saved.delete('cat-clicker-save-v3')
 saved.set('cat-clicker-save-v2', JSON.stringify(legacyV2))
 assert.ok(game.loadGame().rooms[0].furniturePositions['room-1-basic-1'].desktop, 'older saves keep their room layout')
+assert.equal(game.loadGame().rooms[0].lightsOff, false, 'older saves start with lights on')
 const staleBoost = game.initialState()
 staleBoost.rooms[0].caviarSeconds = 60
 saved.set('cat-clicker-save-v2', JSON.stringify({ ...staleBoost, savedAt: Date.now() - 61000 }))
@@ -145,4 +181,4 @@ state = reduce(state, { type: 'reset' })
 assert.equal(state.mode, 'normal')
 assert.equal(state.currentRoom, 1)
 assert.deepEqual(game.activeProgress(state).furniturePositions, {}, 'reset clears room decoration')
-console.log('Game checks passed: purchases, furniture placement, hunger, fallback, five rooms, save, Expert and reset.')
+console.log('Game checks passed: purchases, furniture placement, lights, hunger, fallback, five rooms, save, Expert and reset.')

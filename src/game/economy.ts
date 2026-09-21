@@ -1,6 +1,10 @@
 import { catsForRoom, firstCatForRoom } from './cats'
+import { expertCostScale, roomEconomyScale } from './balance'
 import { constrainFurniturePoint, visibleFurniture, type FurniturePosition, type SceneLayout } from './furniture'
 import { foods, resources } from './items'
+import { createMatch3Round, playMatch3Turn } from './match3/reducer'
+import { match3FishReward } from './match3/scoring'
+import type { Match3Round } from './match3/types'
 import { rooms } from './rooms'
 import { upgradesForRoom, type Upgrade } from './upgrades'
 
@@ -9,6 +13,7 @@ export type GameMode = 'normal' | 'expert'
 export interface RoomProgress {
   fish: number
   hunger: number
+  lightsOff: boolean
   resourceLevels: Record<string, number>
   boughtUpgrades: string[]
   furniturePositions: Record<string, FurniturePosition>
@@ -22,12 +27,17 @@ export interface GameState {
   currentRoom: number
   unlockedRoom: number
   rooms: RoomProgress[]
+  match3: { activeRound: Match3Round | null }
   finalDismissed: boolean
 }
 
 export type GameAction =
   | { type: 'click' }
   | { type: 'tick'; seconds: number }
+  | { type: 'toggleLights' }
+  | { type: 'startMatch3'; seed: number }
+  | { type: 'match3Swap'; first: number; second: number }
+  | { type: 'settleMatch3' }
   | { type: 'buyResource'; id: string }
   | { type: 'buyUpgrade'; id: string }
   | { type: 'placeFurniture'; id: string; layout: SceneLayout; x: number; y: number }
@@ -44,6 +54,7 @@ export type GameAction =
 export const newRoomProgress = (roomId: number): RoomProgress => ({
   fish: 0,
   hunger: 100,
+  lightsOff: false,
   resourceLevels: Object.fromEntries(resources.map((item) => [item.id, 0])),
   boughtUpgrades: [],
   furniturePositions: {},
@@ -57,6 +68,7 @@ export const initialState = (mode: GameMode = 'normal'): GameState => ({
   currentRoom: 1,
   unlockedRoom: 1,
   rooms: rooms.map((room) => newRoomProgress(room.id)),
+  match3: { activeRound: null },
   finalDismissed: false,
 })
 
@@ -64,7 +76,7 @@ export const activeProgress = (state: GameState): RoomProgress => state.rooms[st
 export const hungerDuration = (mode: GameMode): number => mode === 'expert' ? 12 * 60 : 20 * 60
 
 const costMultiplier = (state: GameState): number =>
-  1.5 ** (state.currentRoom - 1) * (state.mode === 'expert' ? 2.5 : 1)
+  roomEconomyScale(state.currentRoom) * (state.mode === 'expert' ? expertCostScale : 1)
 
 export const catCost = (state: GameState, baseCost: number): number => Math.ceil(baseCost * costMultiplier(state))
 export const upgradeCost = (state: GameState, upgrade: Upgrade): number => Math.ceil(upgrade.baseCost * costMultiplier(state))
@@ -110,6 +122,19 @@ function updateProgress(state: GameState, next: RoomProgress): GameState {
   return { ...state, rooms: updated }
 }
 
+function settleMatch3(state: GameState): GameState {
+  const round = state.match3.activeRound
+  if (!round) return state
+  const reward = match3FishReward(round.score, round.roomId, round.mode)
+  return {
+    ...state,
+    rooms: state.rooms.map((room, index) => index === round.roomId - 1
+      ? { ...room, fish: Math.min(1e15, room.fish + reward) }
+      : room),
+    match3: { activeRound: null },
+  }
+}
+
 function completeIfNeeded(state: GameState): GameState {
   return state.currentRoom === rooms.length && roomComplete(state)
     ? { ...state, finalDismissed: false }
@@ -120,7 +145,29 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
   const progress = activeProgress(state)
   switch (action.type) {
     case 'click':
-      return progress.hunger > 0 ? updateProgress(state, { ...progress, fish: progress.fish + currentClickReward(state) }) : state
+      return progress.hunger > 0 && !progress.lightsOff ? updateProgress(state, { ...progress, fish: progress.fish + currentClickReward(state) }) : state
+    case 'toggleLights':
+      return progress.hunger <= 0 ? state : updateProgress(state, { ...progress, lightsOff: !progress.lightsOff })
+    case 'startMatch3':
+      return state.match3.activeRound ? state : {
+        ...state,
+        match3: {
+          activeRound: createMatch3Round(
+            state.currentRoom,
+            state.mode,
+            catsForRoom(state.currentRoom).map((cat) => cat.id),
+            action.seed,
+          ),
+        },
+      }
+    case 'match3Swap': {
+      const round = state.match3.activeRound
+      if (!round || round.roomId !== state.currentRoom) return state
+      const result = playMatch3Turn(round, action.first, action.second, catsForRoom(round.roomId).map((cat) => cat.id))
+      return result.accepted ? { ...state, match3: { activeRound: result.round } } : state
+    }
+    case 'settleMatch3':
+      return settleMatch3(state)
     case 'tick': {
       const seconds = Math.max(0, Math.min(action.seconds, 2))
       if (seconds === 0) return state
@@ -131,7 +178,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       const nextProgress = {
         ...progress,
         fish: fallback > 0 && earnedFish >= mousePrice - 1e-7 ? mousePrice : earnedFish,
-        hunger: Math.max(0, progress.hunger - seconds * 100 / hungerDuration(state.mode)),
+        hunger: progress.lightsOff ? progress.hunger : Math.max(0, progress.hunger - seconds * 100 / hungerDuration(state.mode)),
         caviarSeconds: Math.max(0, progress.caviarSeconds - seconds),
       }
       return {
@@ -206,7 +253,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         ? updateProgress(state, { ...progress, selectedCat: action.id }) : state
     case 'visitRoom':
       return Number.isInteger(action.roomId) && action.roomId >= 1 && action.roomId <= state.unlockedRoom
-        ? { ...state, currentRoom: action.roomId } : state
+        ? { ...settleMatch3(state), currentRoom: action.roomId } : state
     case 'enterNextRoom':
       return roomComplete(state) && state.currentRoom < rooms.length
         ? { ...state, currentRoom: state.currentRoom + 1, unlockedRoom: Math.max(state.unlockedRoom, state.currentRoom + 1) } : state

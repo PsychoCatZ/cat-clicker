@@ -1,4 +1,4 @@
-export type Page = 'upgrades' | 'resources' | 'food' | 'cats'
+export type Page = 'upgrades' | 'resources' | 'food' | 'cats' | 'match3'
 
 interface Props {
   page: Page
@@ -10,6 +10,7 @@ const pages: { id: Page; name: string; icon: string }[] = [
   { id: 'resources', name: 'Ресурсы', icon: '/assets/resources/02.png' },
   { id: 'food', name: 'Корм', icon: '/assets/food/02.png' },
   { id: 'cats', name: 'Коты', icon: '/assets/ui/03.png' },
+  { id: 'match3', name: 'Мини-игра', icon: '/assets/ui/04.png' },
 ]
 
 export function Navigation({ page, onChange }: Props) {

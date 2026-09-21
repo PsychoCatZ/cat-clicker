@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite --configLoader runner",
     "build": "tsc -b && vite build --configLoader runner",
+    "check:match3": "node tools/check_match3.mjs",
     "preview": "vite preview --configLoader runner",
     "check:game": "node tools/check_game.mjs"
   },

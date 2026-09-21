@@ -7,11 +7,12 @@ const format = (value: number): string => value < 1 && value > 0 ? value.toFixed
 interface Props {
   state: GameState
   onReset: () => void
+  onToggleLights: () => void
 }
 
-export function ResourceBar({ state, onReset }: Props) {
+export function ResourceBar({ state, onReset, onToggleLights }: Props) {
   const progress = activeProgress(state)
-  const sleeping = progress.hunger <= 0
+  const sleeping = progress.hunger <= 0 || progress.lightsOff
   const minutes = Math.ceil(progress.hunger / 100 * hungerDuration(state.mode) / 60)
   return (
     <header className="topbar">
@@ -34,7 +35,11 @@ export function ResourceBar({ state, onReset }: Props) {
         <div className="hunger-track" role="progressbar" aria-label="Сытость кота" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.ceil(progress.hunger)}>
           <div className="hunger-fill" style={{ width: `${progress.hunger}%` }} />
         </div>
-        <strong>{sleeping ? 'Кот спит' : `${Math.ceil(progress.hunger)}% · ~${minutes} мин`}</strong>
+        <strong>{progress.hunger <= 0 ? 'Кот голоден' : progress.lightsOff ? `${Math.ceil(progress.hunger)}% · пауза` : `${Math.ceil(progress.hunger)}% · ~${minutes} мин`}</strong>
+        <button className="light-toggle" type="button" onClick={onToggleLights} disabled={progress.hunger <= 0}
+          aria-pressed={progress.lightsOff} title={progress.hunger <= 0 ? 'Сначала покормите кота' : undefined}>
+          {progress.lightsOff ? 'Включить свет' : 'Выключить свет'}
+        </button>
         {progress.caviarSeconds > 0 && <span className="boost-label">Икра ×2 · {Math.ceil(progress.caviarSeconds)} с</span>}
         {!sleeping && <span className="base-power" title="Без покупок">База: {clickPower(state)}</span>}
       </div>

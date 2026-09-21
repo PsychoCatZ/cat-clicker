@@ -2,10 +2,13 @@ import { catsForRoom, firstCatForRoom } from './cats'
 import { initialState, newRoomProgress, type GameMode, type GameState, type RoomProgress } from './economy'
 import { defaultFurniturePosition, type FurniturePoint, type FurniturePosition } from './furniture'
 import { resources } from './items'
+import { findMatchRuns, findPossibleSwap } from './match3/board'
+import { MATCH3_MOVES, MATCH3_SIZE, type Match3Round, type Match3Tile } from './match3/types'
 import { rooms } from './rooms'
 import { upgradesForRoom } from './upgrades'
 
-const SAVE_KEY = 'cat-clicker-save-v2'
+const SAVE_KEY = 'cat-clicker-save-v3'
+const PREVIOUS_SAVE_KEY = 'cat-clicker-save-v2'
 const OLD_SAVE_KEY = 'cat-clicker-save-v1'
 
 const safeNumber = (value: unknown, fallback = 0): number =>
@@ -45,6 +48,7 @@ function readRoom(value: unknown, roomId: number): RoomProgress {
   return {
     fish: Math.min(safeNumber(data.fish), 1e15),
     hunger: Math.min(safeNumber(data.hunger, 100), 100),
+    lightsOff: data.lightsOff === true,
     resourceLevels: Object.fromEntries(resources.map((item) => {
       const level = data.resourceLevels?.[item.id]
       return [item.id, typeof level === 'number' && Number.isInteger(level) && level >= 0 ? Math.min(level, 1000) : 0]
@@ -55,6 +59,47 @@ function readRoom(value: unknown, roomId: number): RoomProgress {
     selectedCat: typeof data.selectedCat === 'string' && unlockedCats.includes(data.selectedCat)
       ? data.selectedCat : firstCatForRoom(roomId).id,
     caviarSeconds: Math.min(safeNumber(data.caviarSeconds), 60),
+  }
+}
+
+function readMatch3Round(value: unknown, mode: GameMode, currentRoom: number, unlockedRoom: number): Match3Round | null {
+  if (!value || typeof value !== 'object') return null
+  const data = value as Partial<Match3Round>
+  const roomId = typeof data.roomId === 'number' && Number.isInteger(data.roomId)
+    ? data.roomId : 0
+  if (roomId !== currentRoom || roomId < 1 || roomId > unlockedRoom || data.mode !== mode || data.rulesId !== 'classic-7x7') return null
+  const validCats = new Set(catsForRoom(roomId).map((cat) => cat.id))
+  if (!Array.isArray(data.board) || data.board.length !== MATCH3_SIZE ** 2) return null
+  const ids = new Set<number>()
+  const board: Match3Tile[] = []
+  for (const value of data.board as unknown[]) {
+    if (!value || typeof value !== 'object') return null
+    const tile = value as Partial<Match3Tile>
+    if (typeof tile.id !== 'number' || !Number.isInteger(tile.id) || tile.id < 0 || ids.has(tile.id)
+      || typeof tile.catId !== 'string' || !validCats.has(tile.catId) || tile.kind !== 'normal') return null
+    ids.add(tile.id)
+    board.push({ id: tile.id, catId: tile.catId, kind: 'normal' })
+  }
+  if (findMatchRuns(board).length > 0 || !findPossibleSwap(board)) return null
+  const movesLeft = typeof data.movesLeft === 'number' && Number.isInteger(data.movesLeft)
+    ? Math.max(0, Math.min(MATCH3_MOVES, data.movesLeft)) : MATCH3_MOVES
+  const maxTileId = Math.max(...board.map((tile) => tile.id))
+  return {
+    id: typeof data.id === 'string' ? data.id.slice(0, 100) : `${roomId}-${mode}-saved`,
+    roomId,
+    mode,
+    rulesId: 'classic-7x7',
+    board,
+    movesLeft,
+    score: Math.min(safeNumber(data.score), 1e9),
+    maxCombo: Math.min(Math.floor(safeNumber(data.maxCombo)), 50),
+    rngState: typeof data.rngState === 'number' && Number.isInteger(data.rngState) ? data.rngState >>> 0 || 1 : 1,
+    nextTileId: typeof data.nextTileId === 'number' && Number.isInteger(data.nextTileId)
+      ? Math.max(maxTileId + 1, data.nextTileId) : maxTileId + 1,
+    status: movesLeft === 0 ? 'finished' : 'playing',
+    lastGain: Math.min(safeNumber(data.lastGain), 1e9),
+    lastCombo: Math.min(Math.floor(safeNumber(data.lastCombo)), 50),
+    shuffled: data.shuffled === true,
   }
 }
 
@@ -77,6 +122,9 @@ function readCurrentSave(raw: string): GameState | null {
       const progress = readRoom(data.rooms?.[room.id - 1], room.id)
       return { ...progress, caviarSeconds: Math.max(0, progress.caviarSeconds - elapsedSeconds) }
     }),
+    match3: {
+      activeRound: readMatch3Round(data.match3?.activeRound, mode, currentRoom, unlockedRoom),
+    },
     finalDismissed: data.finalDismissed === true,
   }
 }
@@ -121,6 +169,8 @@ export function loadGame(): GameState {
   try {
     const current = localStorage.getItem(SAVE_KEY)
     if (current) return readCurrentSave(current) ?? initialState()
+    const previous = localStorage.getItem(PREVIOUS_SAVE_KEY)
+    if (previous) return readCurrentSave(previous) ?? initialState()
     const old = localStorage.getItem(OLD_SAVE_KEY)
     if (old) return migrateOldSave(old) ?? initialState()
   } catch {
