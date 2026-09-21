@@ -79,9 +79,9 @@ private fun UpgradeCard(
     ItemCard(modifier) {
         CardArt(upgrade.image, upgrade.name)
         CardTexts(
-            badge = (if (upgrade.tier == UpgradeTier.ADVANCED) "Продвинутое" else "Обычное") + " · место ${upgrade.slot + 1}",
+            badge = (if (upgrade.tier == UpgradeTier.ADVANCED) "Продвинутое" else "Обычное") + " №${upgrade.slot + 1}",
             title = upgrade.name,
-            body = "+${Numbers.format(upgrade.income.toDouble())} рыбок в секунду",
+            body = "+${Numbers.format(upgrade.income.toDouble())} в секунду",
         )
         Spacer(Modifier.weight(1f))
         when {

@@ -47,7 +47,10 @@ import dev.psychocat.catclicker.game.model.GameAction
 import dev.psychocat.catclicker.game.model.GameState
 import dev.psychocat.catclicker.ui.components.BigButton
 import dev.psychocat.catclicker.ui.components.ButtonStyle
+import dev.psychocat.catclicker.ui.room.FishHud
 import dev.psychocat.catclicker.ui.room.HungerPanel
+import dev.psychocat.catclicker.ui.room.ModeLabel
+import dev.psychocat.catclicker.ui.room.RatesHud
 import dev.psychocat.catclicker.ui.room.Hud
 import dev.psychocat.catclicker.ui.room.RoomChips
 import dev.psychocat.catclicker.ui.room.RoomScene
@@ -250,7 +253,13 @@ private fun GameBody(
                                 drawRect(Cream, topLeft = Offset(-gutter, 0f), size = Size(size.width + 2 * gutter, size.height))
                             }
                             .padding(vertical = 8.dp),
-                    ) { Hud(state) }
+                    ) { FishHud(state) }
+                }
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        ModeLabel(state)
+                        RatesHud(state)
+                    }
                 }
                 item { RoomChips(state.currentRoom, state.unlockedRoom, actions.onVisitRoom) }
                 item { Scene(SCENE_ASPECT_PORTRAIT) }

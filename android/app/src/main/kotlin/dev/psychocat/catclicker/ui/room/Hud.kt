@@ -42,26 +42,43 @@ import dev.psychocat.catclicker.ui.theme.HungerFill
 import dev.psychocat.catclicker.ui.theme.HungerTrack
 import kotlin.math.ceil
 
-/** Fish, income per tap and income per second. The reset button of the web version deliberately does not live here. */
+/** Landscape layout: everything in one block. */
 @Composable
 fun Hud(state: GameState, modifier: Modifier = Modifier) {
-    val income = Economy.fishPerSecond(state) + Economy.safetyIncome(state)
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(
-            (if (state.mode == GameMode.EXPERT) "Режим «Эксперт»" else "Обычный режим") + " · " +
-                Rooms.byId(state.currentRoom).name,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.primary,
-        )
-        StatCard(
-            label = "Рыбки комнаты", value = Numbers.format(state.progress.fish), modifier = Modifier.fillMaxWidth(),
-            emphasized = true, icon = { Image(gameImage("resource_01"), contentDescription = null, modifier = Modifier.size(44.dp)) },
-        )
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
-            StatCard(label = "За клик", value = "+" + Numbers.format(Economy.currentClickReward(state)), modifier = Modifier.weight(1f), large = false)
-            StatCard(label = "В секунду", value = Numbers.format(income), modifier = Modifier.weight(1f), large = false)
-        }
+        ModeLabel(state)
+        FishHud(state)
+        RatesHud(state)
     }
+}
+
+/** The fish counter alone: small enough to stay pinned to the top of the screen while the player shops. */
+@Composable
+fun FishHud(state: GameState, modifier: Modifier = Modifier) {
+    StatCard(
+        label = "Рыбки комнаты", value = Numbers.format(state.progress.fish), modifier = modifier.fillMaxWidth(),
+        emphasized = true, icon = { Image(gameImage("resource_01"), contentDescription = null, modifier = Modifier.size(40.dp)) },
+    )
+}
+
+/** Income per tap and per second. The reset button of the web version deliberately does not live here. */
+@Composable
+fun RatesHud(state: GameState, modifier: Modifier = Modifier) {
+    val income = Economy.fishPerSecond(state) + Economy.safetyIncome(state)
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
+        StatCard(label = "За клик", value = "+" + Numbers.format(Economy.currentClickReward(state)), modifier = Modifier.weight(1f), large = false)
+        StatCard(label = "В секунду", value = Numbers.format(income), modifier = Modifier.weight(1f), large = false)
+    }
+}
+
+@Composable
+fun ModeLabel(state: GameState, modifier: Modifier = Modifier) {
+    Text(
+        (if (state.mode == GameMode.EXPERT) "Режим «Эксперт»" else "Обычный режим") + " · " + Rooms.byId(state.currentRoom).name,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = modifier,
+    )
 }
 
 @Composable

@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -33,11 +32,15 @@ import dev.psychocat.catclicker.ui.theme.CardBorder
 import dev.psychocat.catclicker.ui.theme.CreamCard
 import dev.psychocat.catclicker.ui.theme.Sand
 
+/**
+ * Order matters: on a phone the tabs form rows of three, so the short words go first and the two long ones
+ * ("Улучшения", "Мини-игры") share the second row, each about 1.5 times as wide, and fit on one line.
+ */
 enum class ShopTab(val title: String, val icon: String) {
-    UPGRADES("Улучшения", "ui_02"),
+    CATS("Коты", "ui_03"),
     RESOURCES("Ресурсы", "resource_02"),
     FOOD("Корм", "food_02"),
-    CATS("Коты", "ui_03"),
+    UPGRADES("Улучшения", "ui_02"),
     MINIGAMES("Мини-игры", "ui_04"),
 }
 
@@ -75,7 +78,7 @@ fun RoomChips(currentRoom: Int, unlockedRoom: Int, onVisit: (Int) -> Unit, modif
     }
 }
 
-/** Section switcher: big labelled buttons in rows of [columns], nothing is hidden behind scrolling. */
+/** Section switcher: big labelled buttons in rows of [columns]; a shorter last row is stretched to full width. */
 @Composable
 fun ShopTabs(selected: ShopTab, columns: Int, onSelect: (ShopTab) -> Unit, modifier: Modifier = Modifier) {
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -100,7 +103,6 @@ fun ShopTabs(selected: ShopTab, columns: Int, onSelect: (ShopTab) -> Unit, modif
                         }
                     }
                 }
-                repeat(columns - rowTabs.size) { Spacer(Modifier.weight(1f)) }
             }
         }
     }

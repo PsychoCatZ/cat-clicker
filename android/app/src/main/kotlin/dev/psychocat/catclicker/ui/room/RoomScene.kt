@@ -38,7 +38,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -154,7 +153,7 @@ fun RoomScene(
                 Text(
                     "+${Numbers.format(clickReward)}",
                     modifier = Modifier.align(Alignment.Center).offset(y = (-(20f + 90f * p)).dp).graphicsLayer { alpha = 1f - p },
-                    style = MaterialTheme.typography.headlineMedium.copy(fontFamily = FontFamily.SansSerif, fontSize = 34.sp, fontWeight = FontWeight.ExtraBold),
+                    style = MaterialTheme.typography.headlineMedium.copy(fontSize = 34.sp, fontWeight = FontWeight.ExtraBold),
                     color = Color(0xFFFFF3C4),
                 )
             }

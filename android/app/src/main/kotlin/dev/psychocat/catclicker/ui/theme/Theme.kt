@@ -6,9 +6,11 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
+import dev.psychocat.catclicker.R
 
 // Palette taken from the web version's style.css so both versions feel the same.
 val Cream = Color(0xFFF7EFE3)
@@ -41,8 +43,14 @@ private val colors = lightColorScheme(
     error = Danger,
 )
 
-private val Serif = FontFamily.Serif
-private val Sans = FontFamily.SansSerif
+// PT Sans (SIL Open Font License, see android/licenses) is bundled so the game looks the same on every phone
+// instead of depending on the manufacturer's system font. SemiBold resolves to the bold file.
+private val PtSans = FontFamily(
+    Font(R.font.pt_sans_regular, FontWeight.Normal),
+    Font(R.font.pt_sans_bold, FontWeight.Bold),
+)
+private val Serif = PtSans
+private val Sans = PtSans
 
 // Deliberately large: the game is meant for an elderly player. `sp` also follows the system font-size setting.
 private val typography = Typography(
