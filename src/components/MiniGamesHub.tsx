@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { catsForRoom } from '../game/cats'
+import { getMahjongLayout, mahjongDifficulties } from '../game/mahjong/layouts'
+import type { MahjongDifficulty } from '../game/mahjong/types'
 import { PAIRS_CARD_COUNTS, type PairsCardCount } from '../game/pairs/types'
 import type { Room } from '../game/rooms'
 
@@ -7,11 +9,14 @@ interface Props {
   room: Room
   onStartMatch3: () => void
   onStartPairs: (cardCount: PairsCardCount) => void
+  onStartMahjong: (difficulty: MahjongDifficulty) => void
 }
 
-export function MiniGamesHub({ room, onStartMatch3, onStartPairs }: Props) {
+export function MiniGamesHub({ room, onStartMatch3, onStartPairs, onStartMahjong }: Props) {
   const roomCats = catsForRoom(room.id)
   const [pairsCards, setPairsCards] = useState<PairsCardCount>(10)
+  const [mahjongDifficulty, setMahjongDifficulty] = useState<MahjongDifficulty>('normal')
+  const mahjongLayout = getMahjongLayout(mahjongDifficulty)
   return <section className="minigames-hub content-section" aria-labelledby="minigames-title">
     <div className="section-heading">
       <div><span className="eyebrow">Спокойные игры · {room.name}</span><h2 id="minigames-title">Мини-игры</h2></div>
@@ -41,6 +46,24 @@ export function MiniGamesHub({ room, onStartMatch3, onStartPairs }: Props) {
             onClick={() => setPairsCards(count)}>{count} карточек</button>)}
         </div>
         <button type="button" className="match3-primary" onClick={() => onStartPairs(pairsCards)}>Играть · {pairsCards} карточек</button>
+      </article>
+      <article className="minigame-card">
+        <div className="minigame-preview mahjong-preview" aria-hidden="true">
+          {roomCats.slice(0, 5).map((cat, index) => <div key={cat.id} style={{ transform: `translate(${index * 13 - 26}px, ${Math.abs(index - 2) * 5}px)`, zIndex: index }}><img src={cat.image} alt="" /></div>)}
+        </div>
+        <span className="eyebrow">{mahjongLayout.tileCount} фишек · {mahjongLayout.tileCount / 2} пар</span>
+        <h3>Кошачий маджонг</h3>
+        <p>Снимайте одинаковых свободных котиков со слоёв. Без таймера, штрафов и спешки.</p>
+        <div className="mahjong-mode-picker" aria-label="Сложность маджонга">
+          {mahjongDifficulties.map((difficulty) => {
+            const layout = getMahjongLayout(difficulty)
+            return <button key={difficulty} type="button" className={mahjongDifficulty === difficulty ? 'active' : ''}
+              aria-pressed={mahjongDifficulty === difficulty} onClick={() => setMahjongDifficulty(difficulty)}>
+              {layout.name}<small>{layout.tileCount}</small>
+            </button>
+          })}
+        </div>
+        <button type="button" className="match3-primary" onClick={() => onStartMahjong(mahjongDifficulty)}>Играть · {mahjongLayout.name.toLowerCase()}</button>
       </article>
     </div>
   </section>

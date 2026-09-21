@@ -2,6 +2,7 @@ import { useCallback, useEffect, useReducer, useState } from 'react'
 import { CatCollection } from './components/CatCollection'
 import { FoodShop } from './components/FoodShop'
 import { GameScene } from './components/GameScene'
+import { MahjongGame } from './components/MahjongGame'
 import { Match3Game } from './components/Match3Game'
 import { MiniGamesHub } from './components/MiniGamesHub'
 import { Navigation, type Page } from './components/Navigation'
@@ -16,6 +17,7 @@ import { rooms } from './game/rooms'
 import { loadGame, saveGame } from './game/save'
 import { upgradesForRoom } from './game/upgrades'
 import { match3FishReward } from './game/match3/scoring'
+import { mahjongFishReward } from './game/mahjong/scoring'
 import { pairsFishReward } from './game/pairs/scoring'
 
 const formatAwayTime = (seconds: number): string => {
@@ -28,7 +30,8 @@ const formatAwayTime = (seconds: number): string => {
 
 function App() {
   const [state, dispatch] = useReducer(gameReducer, undefined, loadGame)
-  const [page, setPage] = useState<Page>(() => state.match3.activeRound ? 'match3' : state.pairs.activeRound ? 'pairs' : 'upgrades')
+  const [page, setPage] = useState<Page>(() => state.match3.activeRound ? 'match3'
+    : state.pairs.activeRound ? 'pairs' : state.mahjong.activeRound ? 'mahjong' : 'upgrades')
   const [notice, setNotice] = useState('')
   const hidePairMismatch = useCallback(() => dispatch({ type: 'pairsHideMismatch' }), [])
   const progress = activeProgress(state)
@@ -71,22 +74,43 @@ function App() {
     if (round) setNotice(reward > 0 ? `Котификация: +${reward.toLocaleString('ru-RU')} рыбок` : 'Раунд завершён')
   }
 
+  function finishMahjong(nextPage: Page = 'minigames') {
+    const round = state.mahjong.activeRound
+    const reward = round ? mahjongFishReward(round.score, round.roomId, round.mode) : 0
+    if (round) dispatch({ type: 'settleMahjong' })
+    setPage(nextPage)
+    if (round) setNotice(reward > 0 ? `Котификация: +${reward.toLocaleString('ru-RU')} рыбок` : 'Раунд завершён')
+  }
+
+  function replayMahjong() {
+    const round = state.mahjong.activeRound
+    if (!round) return
+    const reward = mahjongFishReward(round.score, round.roomId, round.mode)
+    dispatch({ type: 'settleMahjong' })
+    dispatch({ type: 'startMahjong', seed: Date.now(), difficulty: round.difficulty })
+    if (reward > 0) setNotice(`Котификация: +${reward.toLocaleString('ru-RU')} рыбок`)
+  }
+
   function changePage(nextPage: Page) {
     if (page === 'match3' && nextPage !== 'match3') finishMatch3(nextPage)
     else if (page === 'pairs' && nextPage !== 'pairs') finishPairs(nextPage)
+    else if (page === 'mahjong' && nextPage !== 'mahjong') finishMahjong(nextPage)
     else setPage(nextPage)
   }
 
   function visitRoom(roomId: number) {
     const round = state.match3.activeRound
     const pairsRound = state.pairs.activeRound
+    const mahjongRound = state.mahjong.activeRound
     const reward = round ? match3FishReward(round.score, round.roomId, round.mode)
-      : pairsRound ? pairsFishReward(pairsRound.matches, pairsRound.attempts, pairsRound.cardCount / 2, pairsRound.roomId, pairsRound.mode, pairsRound.status === 'finished') : 0
+      : pairsRound ? pairsFishReward(pairsRound.matches, pairsRound.attempts, pairsRound.cardCount / 2, pairsRound.roomId, pairsRound.mode, pairsRound.status === 'finished')
+        : mahjongRound ? mahjongFishReward(mahjongRound.score, mahjongRound.roomId, mahjongRound.mode) : 0
     if (round) dispatch({ type: 'settleMatch3' })
     if (pairsRound) dispatch({ type: 'settlePairs' })
+    if (mahjongRound) dispatch({ type: 'settleMahjong' })
     dispatch({ type: 'visitRoom', roomId })
     setPage('upgrades')
-    if (round || pairsRound) setNotice(reward > 0 ? `Котификация: +${reward.toLocaleString('ru-RU')} рыбок` : 'Раунд завершён')
+    if (round || pairsRound || mahjongRound) setNotice(reward > 0 ? `Котификация: +${reward.toLocaleString('ru-RU')} рыбок` : 'Раунд завершён')
   }
 
   function buyResource(id: string) {
@@ -153,6 +177,17 @@ function App() {
     {notice && <div className="notice" role="status">{notice}</div>}
   </main>
 
+  if (page === 'mahjong' && state.mahjong.activeRound) return <main className="app-shell mini-game-focus-shell">
+    <MahjongGame room={room} mode={state.mode} round={state.mahjong.activeRound}
+      onSelect={(tileId) => dispatch({ type: 'mahjongSelect', tileId })}
+      onHint={() => dispatch({ type: 'mahjongHint' })}
+      onShuffle={() => dispatch({ type: 'mahjongShuffle' })}
+      onPlayAgain={replayMahjong}
+      onExit={() => finishMahjong()} />
+    {offlineNotice}
+    {notice && <div className="notice" role="status">{notice}</div>}
+  </main>
+
   return <main className="app-shell">
     <ResourceBar state={state} onReset={resetProgress} onToggleLights={() => dispatch({ type: 'toggleLights' })} />
     <nav className="room-tabs" aria-label="Комнаты">
@@ -174,7 +209,8 @@ function App() {
       {page === 'cats' && <CatCollection state={state} onBuy={buyCat} onSelect={(id) => dispatch({ type: 'selectCat', id })} />}
       {page === 'minigames' && <MiniGamesHub room={room}
         onStartMatch3={() => { dispatch({ type: 'startMatch3', seed: Date.now() }); setPage('match3') }}
-        onStartPairs={(cardCount) => { dispatch({ type: 'startPairs', seed: Date.now(), cardCount }); setPage('pairs') }} />}
+        onStartPairs={(cardCount) => { dispatch({ type: 'startPairs', seed: Date.now(), cardCount }); setPage('pairs') }}
+        onStartMahjong={(difficulty) => { dispatch({ type: 'startMahjong', seed: Date.now(), difficulty }); setPage('mahjong') }} />}
     </div>
     {finished && state.finalDismissed && <button type="button" className="final-reopen" onClick={() => dispatch({ type: 'showFinal' })}>Все коты спасены · Финал</button>}
     <footer>Пять комнат · двадцать пять котов · одна большая Котификация</footer>

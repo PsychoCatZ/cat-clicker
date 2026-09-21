@@ -2,6 +2,9 @@ import { catsForRoom, firstCatForRoom } from './cats'
 import { expertCostScale, roomEconomyScale } from './balance'
 import { constrainFurniturePoint, visibleFurniture, type FurniturePosition, type SceneLayout } from './furniture'
 import { foods, resources } from './items'
+import { createMahjongRound, hintMahjongPair, selectMahjongTile, shuffleMahjong } from './mahjong/reducer'
+import { mahjongFishReward } from './mahjong/scoring'
+import type { MahjongDifficulty, MahjongRound } from './mahjong/types'
 import { createMatch3Round, playMatch3Turn } from './match3/reducer'
 import { match3FishReward } from './match3/scoring'
 import type { Match3Round } from './match3/types'
@@ -32,6 +35,7 @@ export interface GameState {
   rooms: RoomProgress[]
   match3: { activeRound: Match3Round | null }
   pairs: { activeRound: PairsRound | null }
+  mahjong: { activeRound: MahjongRound | null }
   offlineReport: OfflineReport | null
   finalDismissed: boolean
 }
@@ -54,6 +58,11 @@ export type GameAction =
   | { type: 'pairsReveal'; cardId: number }
   | { type: 'pairsHideMismatch' }
   | { type: 'settlePairs' }
+  | { type: 'startMahjong'; seed: number; difficulty: MahjongDifficulty }
+  | { type: 'mahjongSelect'; tileId: number }
+  | { type: 'mahjongHint' }
+  | { type: 'mahjongShuffle' }
+  | { type: 'settleMahjong' }
   | { type: 'dismissOfflineReport' }
   | { type: 'buyResource'; id: string }
   | { type: 'buyUpgrade'; id: string }
@@ -87,6 +96,7 @@ export const initialState = (mode: GameMode = 'normal'): GameState => ({
   rooms: rooms.map((room) => newRoomProgress(room.id)),
   match3: { activeRound: null },
   pairs: { activeRound: null },
+  mahjong: { activeRound: null },
   offlineReport: null,
   finalDismissed: false,
 })
@@ -173,6 +183,19 @@ function settlePairs(state: GameState): GameState {
   }
 }
 
+function settleMahjong(state: GameState): GameState {
+  const round = state.mahjong.activeRound
+  if (!round) return state
+  const reward = mahjongFishReward(round.score, round.roomId, round.mode)
+  return {
+    ...state,
+    rooms: state.rooms.map((room, index) => index === round.roomId - 1
+      ? { ...room, fish: Math.min(1e15, room.fish + reward) }
+      : room),
+    mahjong: { activeRound: null },
+  }
+}
+
 export const OFFLINE_LIMIT_SECONDS = 8 * 60 * 60
 
 export function applyOfflineProgress(state: GameState, elapsedSeconds: number): GameState {
@@ -226,7 +249,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
     case 'toggleLights':
       return progress.hunger <= 0 ? state : updateProgress(state, { ...progress, lightsOff: !progress.lightsOff })
     case 'startMatch3':
-      return state.match3.activeRound || state.pairs.activeRound ? state : {
+      return state.match3.activeRound || state.pairs.activeRound || state.mahjong.activeRound ? state : {
         ...state,
         match3: {
           activeRound: createMatch3Round(
@@ -246,7 +269,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
     case 'settleMatch3':
       return settleMatch3(state)
     case 'startPairs':
-      return state.pairs.activeRound || state.match3.activeRound ? state : {
+      return state.pairs.activeRound || state.match3.activeRound || state.mahjong.activeRound ? state : {
         ...state,
         pairs: {
           activeRound: createPairsRound(
@@ -272,6 +295,39 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
     }
     case 'settlePairs':
       return settlePairs(state)
+    case 'startMahjong':
+      return state.mahjong.activeRound || state.match3.activeRound || state.pairs.activeRound ? state : {
+        ...state,
+        mahjong: {
+          activeRound: createMahjongRound(
+            state.currentRoom,
+            state.mode,
+            catsForRoom(state.currentRoom).map((cat) => cat.id),
+            action.difficulty,
+            action.seed,
+          ),
+        },
+      }
+    case 'mahjongSelect': {
+      const round = state.mahjong.activeRound
+      if (!round || round.roomId !== state.currentRoom) return state
+      const next = selectMahjongTile(round, action.tileId)
+      return next === round ? state : { ...state, mahjong: { activeRound: next } }
+    }
+    case 'mahjongHint': {
+      const round = state.mahjong.activeRound
+      if (!round) return state
+      const next = hintMahjongPair(round)
+      return next === round ? state : { ...state, mahjong: { activeRound: next } }
+    }
+    case 'mahjongShuffle': {
+      const round = state.mahjong.activeRound
+      if (!round) return state
+      const next = shuffleMahjong(round, catsForRoom(round.roomId).map((cat) => cat.id))
+      return next === round ? state : { ...state, mahjong: { activeRound: next } }
+    }
+    case 'settleMahjong':
+      return settleMahjong(state)
     case 'dismissOfflineReport':
       return state.offlineReport ? { ...state, offlineReport: null } : state
     case 'tick': {
@@ -359,7 +415,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         ? updateProgress(state, { ...progress, selectedCat: action.id }) : state
     case 'visitRoom':
       return Number.isInteger(action.roomId) && action.roomId >= 1 && action.roomId <= state.unlockedRoom
-        ? { ...settlePairs(settleMatch3(state)), currentRoom: action.roomId } : state
+        ? { ...settleMahjong(settlePairs(settleMatch3(state))), currentRoom: action.roomId } : state
     case 'enterNextRoom':
       return roomComplete(state) && state.currentRoom < rooms.length
         ? { ...state, currentRoom: state.currentRoom + 1, unlockedRoom: Math.max(state.unlockedRoom, state.currentRoom + 1) } : state

@@ -233,7 +233,7 @@ footer { padding: 16px 0 4px; color: #ad9381; font-size: 11px; text-align: cente
 .mini-game-focus-shell { max-width: none; min-height: 100vh; padding: 0; }
 .mini-game-focus-shell .match3-screen { display: grid; place-items: center; min-height: 100vh; margin: 0; border-radius: 0; }
 .mini-game-focus-shell .match3-card { width: min(820px, 100%); }
-.minigames-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.minigames-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
 .minigame-card { display: flex; flex-direction: column; min-width: 0; padding: 18px; border: 1px solid #e6d1b8; border-radius: 20px; background: #fffdf8; box-shadow: 0 5px 16px #5b3b2412; }
 .minigame-card h3 { margin-top: 5px; font-family: Georgia, 'Times New Roman', serif; font-size: 23px; }
 .minigame-card p { flex: 1; margin: 8px 0 17px; color: #8b6a58; font-size: 13px; line-height: 1.5; }
@@ -247,6 +247,14 @@ footer { padding: 16px 0 4px; color: #ad9381; font-size: 11px; text-align: cente
 .pairs-mode-picker button { min-width: 0; padding: 8px 5px; border: 1px solid transparent; border-radius: 9px; background: transparent; color: #806150; font-size: 11px; font-weight: 850; cursor: pointer; }
 .pairs-mode-picker button:hover { background: #fff8ed; }
 .pairs-mode-picker button.active { border-color: #d29a70; background: #fffaf2; color: #6b3c29; box-shadow: 0 2px 7px #5b3c2418; }
+.mahjong-preview { align-items: center; padding: 20px; }
+.mahjong-preview > div { display: grid; place-items: center; width: 22%; aspect-ratio: .82; margin: 0 -8px; border: 2px solid #fff4dd; border-radius: 11px; background: linear-gradient(145deg, #fffdf7, #e8cba8); box-shadow: 4px 5px 0 #9a7055, 6px 8px 12px #4a2a1f44; }
+.mahjong-preview img { width: 96%; height: 96%; object-fit: contain; }
+.mahjong-mode-picker { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; margin: 0 0 12px; padding: 5px; border-radius: 12px; background: #f4e6d4; }
+.mahjong-mode-picker button { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 0; padding: 7px 3px; border: 1px solid transparent; border-radius: 9px; background: transparent; color: #806150; font-size: 10px; font-weight: 850; cursor: pointer; }
+.mahjong-mode-picker button:hover { background: #fff8ed; }
+.mahjong-mode-picker button.active { border-color: #d29a70; background: #fffaf2; color: #6b3c29; box-shadow: 0 2px 7px #5b3c2418; }
+.mahjong-mode-picker small { color: #aa8068; font-size: 9px; }
 .pairs-card { width: min(820px, 100%); }
 .pairs-board { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; width: min(100%, 720px); margin: 0 auto; padding: 12px; border: 3px solid #986044; border-radius: 18px; background: #6d4531b8; box-shadow: inset 0 3px 12px #351c1455, 0 7px 20px #2d1c143d; perspective: 1000px; }
 .pairs-board.cards-16 { grid-template-columns: repeat(4, minmax(0, 1fr)); width: min(100%, 590px); }
@@ -270,6 +278,7 @@ footer { padding: 16px 0 4px; color: #ad9381; font-size: 11px; text-align: cente
   .topbar-main { flex-wrap: wrap; gap: 10px; }
   .topbar-main .stats { order: 3; width: 100%; margin-left: 0; }
   .food-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .minigames-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (max-width: 650px) {

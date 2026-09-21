@@ -4,13 +4,15 @@ import { defaultFurniturePosition, type FurniturePoint, type FurniturePosition }
 import { resources } from './items'
 import { findMatchRuns, findPossibleSwap } from './match3/board'
 import { MATCH3_MOVES, MATCH3_SIZE, type Match3Round, type Match3Tile } from './match3/types'
+import { findMahjongPairs, isMahjongTileFree } from './mahjong/board'
+import { getMahjongLayout, mahjongDifficulties } from './mahjong/layouts'
+import type { MahjongDifficulty, MahjongEvent, MahjongRound, MahjongTile } from './mahjong/types'
 import { PAIRS_CARD_COUNTS, type PairCard, type PairsCardCount, type PairsRound, type PairsRulesId } from './pairs/types'
 import { rooms } from './rooms'
 import { upgradesForRoom } from './upgrades'
 
-const SAVE_KEY = 'cat-clicker-save-v4'
-const PREVIOUS_SAVE_KEY = 'cat-clicker-save-v3'
-const LEGACY_SAVE_KEY = 'cat-clicker-save-v2'
+const SAVE_KEY = 'cat-clicker-save-v5'
+const CURRENT_SAVE_KEYS = [SAVE_KEY, 'cat-clicker-save-v4', 'cat-clicker-save-v3', 'cat-clicker-save-v2']
 const OLD_SAVE_KEY = 'cat-clicker-save-v1'
 
 const safeNumber = (value: unknown, fallback = 0): number =>
@@ -160,6 +162,62 @@ function readPairsRound(value: unknown, mode: GameMode, currentRoom: number, unl
   }
 }
 
+function readMahjongRound(value: unknown, mode: GameMode, currentRoom: number, unlockedRoom: number): MahjongRound | null {
+  if (!value || typeof value !== 'object') return null
+  const data = value as Partial<MahjongRound>
+  const roomId = typeof data.roomId === 'number' && Number.isInteger(data.roomId) ? data.roomId : 0
+  const difficulty = mahjongDifficulties.includes(data.difficulty as MahjongDifficulty)
+    ? data.difficulty as MahjongDifficulty : null
+  if (roomId !== currentRoom || roomId < 1 || roomId > unlockedRoom || data.mode !== mode
+    || data.rulesId !== 'mahjong-v1' || !difficulty || data.layoutId !== difficulty) return null
+  const layout = getMahjongLayout(difficulty)
+  if (!Array.isArray(data.tiles) || data.tiles.length !== layout.tileCount) return null
+  const validCats = new Set(catsForRoom(roomId).map((cat) => cat.id))
+  const rawById = new Map<number, Partial<MahjongTile>>()
+  for (const value of data.tiles as unknown[]) {
+    if (!value || typeof value !== 'object') return null
+    const tile = value as Partial<MahjongTile>
+    if (typeof tile.id !== 'number' || !Number.isInteger(tile.id) || rawById.has(tile.id)) return null
+    rawById.set(tile.id, tile)
+  }
+  const tiles: MahjongTile[] = []
+  for (const slot of layout.slots) {
+    const raw = rawById.get(slot.id)
+    if (!raw || typeof raw.catId !== 'string' || !validCats.has(raw.catId) || typeof raw.removed !== 'boolean') return null
+    tiles.push({ ...slot, catId: raw.catId, removed: raw.removed })
+  }
+  const removedCount = tiles.filter((tile) => tile.removed).length
+  if (removedCount % 2 !== 0 || [...validCats].some((catId) => tiles.filter((tile) => !tile.removed && tile.catId === catId).length % 2 !== 0)) return null
+  const selectedId = typeof data.selectedId === 'number' && Number.isInteger(data.selectedId)
+    && isMahjongTileFree(tiles, data.selectedId) ? data.selectedId : null
+  const availablePairs = findMahjongPairs(tiles)
+  const hintedIds = Array.isArray(data.hintedIds) && data.hintedIds.length === 2
+    && data.hintedIds.every((id) => typeof id === 'number' && Number.isInteger(id))
+    && availablePairs.some(([first, second]) => data.hintedIds?.includes(first) && data.hintedIds?.includes(second))
+    ? data.hintedIds as number[] : []
+  const validEvents: MahjongEvent[] = [null, 'selected', 'mismatch', 'match', 'hint', 'shuffled', 'completed']
+  const lastEvent = validEvents.includes(data.lastEvent as MahjongEvent) ? data.lastEvent as MahjongEvent : null
+  const finished = removedCount === layout.tileCount
+  return {
+    id: typeof data.id === 'string' ? data.id.slice(0, 120) : `${roomId}-${mode}-${difficulty}-saved`,
+    roomId,
+    mode,
+    rulesId: 'mahjong-v1',
+    difficulty,
+    layoutId: difficulty,
+    tiles,
+    selectedId: finished ? null : selectedId,
+    hintedIds: finished ? [] : hintedIds,
+    score: Math.min(safeNumber(data.score), 1e9),
+    pairsFound: removedCount / 2,
+    hintsUsed: Math.min(100000, Math.floor(safeNumber(data.hintsUsed))),
+    shuffles: Math.min(100000, Math.floor(safeNumber(data.shuffles))),
+    rngState: typeof data.rngState === 'number' && Number.isInteger(data.rngState) ? data.rngState >>> 0 || 1 : 1,
+    status: finished ? 'finished' : 'playing',
+    lastEvent: finished ? 'completed' : lastEvent,
+  }
+}
+
 function readCurrentSave(raw: string): GameState | null {
   const value: unknown = JSON.parse(raw)
   if (!value || typeof value !== 'object') return null
@@ -185,10 +243,16 @@ function readCurrentSave(raw: string): GameState | null {
     pairs: {
       activeRound: readPairsRound(data.pairs?.activeRound, mode, currentRoom, unlockedRoom),
     },
+    mahjong: {
+      activeRound: readMahjongRound(data.mahjong?.activeRound, mode, currentRoom, unlockedRoom),
+    },
     offlineReport: null,
     finalDismissed: data.finalDismissed === true,
   }
-  if (state.match3.activeRound && state.pairs.activeRound) state.pairs.activeRound = null
+  if (state.match3.activeRound) {
+    state.pairs.activeRound = null
+    state.mahjong.activeRound = null
+  } else if (state.pairs.activeRound) state.mahjong.activeRound = null
   return applyOfflineProgress(state, elapsedSeconds)
 }
 
@@ -230,12 +294,10 @@ function migrateOldSave(raw: string): GameState | null {
 
 export function loadGame(): GameState {
   try {
-    const current = localStorage.getItem(SAVE_KEY)
-    if (current) return readCurrentSave(current) ?? initialState()
-    const previous = localStorage.getItem(PREVIOUS_SAVE_KEY)
-    if (previous) return readCurrentSave(previous) ?? initialState()
-    const legacy = localStorage.getItem(LEGACY_SAVE_KEY)
-    if (legacy) return readCurrentSave(legacy) ?? initialState()
+    for (const key of CURRENT_SAVE_KEYS) {
+      const current = localStorage.getItem(key)
+      if (current) return readCurrentSave(current) ?? initialState()
+    }
     const old = localStorage.getItem(OLD_SAVE_KEY)
     if (old) return migrateOldSave(old) ?? initialState()
   } catch {

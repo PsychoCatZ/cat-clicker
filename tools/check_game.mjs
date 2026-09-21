@@ -5,7 +5,7 @@ import { build } from 'esbuild'
 
 const bundled = await build({
   stdin: {
-    contents: "export * from './src/game/economy.ts'; export * from './src/game/cats.ts'; export * from './src/game/upgrades.ts'; export * from './src/game/items.ts'; export * from './src/game/rooms.ts'; export * from './src/game/save.ts'; export * from './src/game/furniture.ts'; export * from './src/game/match3/board.ts'; export * from './src/game/match3/scoring.ts'; export * from './src/game/pairs/scoring.ts';",
+    contents: "export * from './src/game/economy.ts'; export * from './src/game/cats.ts'; export * from './src/game/upgrades.ts'; export * from './src/game/items.ts'; export * from './src/game/rooms.ts'; export * from './src/game/save.ts'; export * from './src/game/furniture.ts'; export * from './src/game/match3/board.ts'; export * from './src/game/match3/scoring.ts'; export * from './src/game/pairs/scoring.ts'; export * from './src/game/mahjong/board.ts'; export * from './src/game/mahjong/layouts.ts'; export * from './src/game/mahjong/scoring.ts';",
     resolveDir: process.cwd(),
     sourcefile: 'verification.ts',
   },
@@ -70,6 +70,16 @@ const miniReward = game.match3FishReward(miniGame.match3.activeRound.score, 1, '
 miniGame = reduce(miniGame, { type: 'settleMatch3' })
 assert.equal(miniGame.match3.activeRound, null)
 assert.equal(game.activeProgress(miniGame).fish, miniReward, 'match-3 reward reaches the starting room')
+let mahjong = reduce(game.initialState(), { type: 'startMahjong', seed: 24680, difficulty: 'easy' })
+assert.ok(mahjong.mahjong.activeRound)
+const mahjongMove = game.findMahjongPairs(mahjong.mahjong.activeRound.tiles)[0]
+mahjong = reduce(mahjong, { type: 'mahjongSelect', tileId: mahjongMove[0] })
+mahjong = reduce(mahjong, { type: 'mahjongSelect', tileId: mahjongMove[1] })
+assert.equal(mahjong.mahjong.activeRound.score, 100)
+const mahjongReward = game.mahjongFishReward(100, 1, 'normal')
+mahjong = reduce(mahjong, { type: 'settleMahjong' })
+assert.equal(mahjong.mahjong.activeRound, null)
+assert.equal(game.activeProgress(mahjong).fish, mahjongReward, 'mahjong reward reaches the starting room on early exit')
 let resting = reduce(decorating, { type: 'toggleLights' })
 assert.equal(game.activeProgress(resting).lightsOff, true)
 const beforeRest = game.activeProgress(resting)
@@ -153,9 +163,14 @@ let savedPairs = reduce(game.initialState(), { type: 'startPairs', seed: 98765, 
 savedPairs = reduce(savedPairs, { type: 'pairsReveal', cardId: savedPairs.pairs.activeRound.cards[0].id })
 game.saveGame(savedPairs)
 assert.deepEqual(game.loadGame().pairs.activeRound, savedPairs.pairs.activeRound, 'active pairs round survives reload')
+let savedMahjong = reduce(game.initialState(), { type: 'startMahjong', seed: 13579, difficulty: 'normal' })
+savedMahjong = reduce(savedMahjong, { type: 'mahjongHint' })
+game.saveGame(savedMahjong)
+assert.deepEqual(game.loadGame().mahjong.activeRound, savedMahjong.mahjong.activeRound, 'active mahjong round survives reload')
 const legacyPairs = reduce(game.initialState(), { type: 'startPairs', seed: 45678, cardCount: 10 })
 legacyPairs.pairs.activeRound.rulesId = 'pairs-5'
 delete legacyPairs.pairs.activeRound.cardCount
+saved.delete('cat-clicker-save-v5')
 saved.set('cat-clicker-save-v4', JSON.stringify({ ...legacyPairs, savedAt: Date.now() }))
 assert.equal(game.loadGame().pairs.activeRound.rulesId, 'pairs-10', 'original ten-card round migrates to the sized rules id')
 assert.equal(game.loadGame().pairs.activeRound.cardCount, 10)
@@ -184,7 +199,9 @@ delete legacyV2.rooms[0].furniturePositions
 delete legacyV2.rooms[0].lightsOff
 delete legacyV2.match3
 delete legacyV2.pairs
+delete legacyV2.mahjong
 delete legacyV2.offlineReport
+saved.delete('cat-clicker-save-v5')
 saved.delete('cat-clicker-save-v4')
 saved.delete('cat-clicker-save-v3')
 saved.set('cat-clicker-save-v2', JSON.stringify(legacyV2))
