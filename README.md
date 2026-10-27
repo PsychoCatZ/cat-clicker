@@ -11,8 +11,7 @@
 
 Android — комната и мини-игра «Кошачий маджонг»:
 
-<img src="docs/screenshots/android-room.jpg" alt="Android: кот в комнате" width="300">
-<img src="docs/screenshots/android-mahjong.jpg" alt="Android: кошачий маджонг" width="300">
+<p><img src="docs/screenshots/android-room.jpg" alt="Android: кот в комнате" width="300"> <img src="docs/screenshots/android-mahjong.jpg" alt="Android: кошачий маджонг" width="300"></p>
 
 ## Что есть в игре
 
