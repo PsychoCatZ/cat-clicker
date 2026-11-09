@@ -82,3 +82,7 @@ python tools/slice_assets.py
 - `tools/` — нарезчик исходных изображений и проверка игровых правил.
 
 Полная проверка игровой логики: `npm run check`. Отдельные проверки: `npm run check:game`, `npm run check:match3`, `npm run check:pairs`, `npm run check:mahjong` и `npm run check:sliding`.
+
+## Лицензия
+
+Исходный код распространяется по [лицензии MIT](LICENSE). Copyright (c) 2026 PsychoCatZ.
